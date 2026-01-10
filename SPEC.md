@@ -1,4 +1,4 @@
-# Agent Monitor POC Spec
+# AGX POC Spec
 
 ## Goal
 Provide a Python TUI that lists running Codex and Claude instances, lets the user navigate with vim keys, and activates the corresponding iTerm2 pane when `o` is pressed.
@@ -15,7 +15,7 @@ Provide a Python TUI that lists running Codex and Claude instances, lets the use
 - Persistent state or background daemon.
 
 ## User Experience
-- Launch via CLI: `agent-monitor`.
+- Launch via CLI: `agx`.
 - UI shows a list of matched instances with metadata:
   - Index
   - Process name / command
@@ -49,10 +49,10 @@ When `o` is pressed for a selected instance:
 3) Activate the session itself.
 
 ## Architecture
-- `agent_monitor/processes.py`: process discovery + filtering.
-- `agent_monitor/iterm.py`: iTerm2 API backend.
-- `agent_monitor/tui.py`: prompt_toolkit UI.
-- `agent_monitor/app.py`: orchestration + refresh.
+- `agx/processes.py`: process discovery + filtering.
+- `agx/iterm.py`: iTerm2 API backend.
+- `agx/tui.py`: prompt_toolkit UI.
+- `agx/app.py`: orchestration + refresh.
 
 ## Dependencies
 - `psutil`

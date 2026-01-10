@@ -1,4 +1,4 @@
-from agent_monitor.cli import main
+from agx.cli import main
 
 
 if __name__ == "__main__":

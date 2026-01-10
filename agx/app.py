@@ -4,11 +4,11 @@ import argparse
 import asyncio
 from dataclasses import dataclass
 
-from agent_monitor.iterm import Iterm2Backend, ItermBackend
-from agent_monitor.mapping import map_instances
-from agent_monitor.models import InstanceInfo
-from agent_monitor.processes import ProcessFinder, ProcessQuery
-from agent_monitor.tui import MonitorTui, TuiState
+from agx.iterm import Iterm2Backend, ItermBackend
+from agx.mapping import map_instances
+from agx.models import InstanceInfo
+from agx.processes import ProcessFinder, ProcessQuery
+from agx.tui import MonitorTui, TuiState
 
 
 @dataclass

@@ -1,7 +1,7 @@
 [project]
-name = "agent-monitor"
+name = "agx"
 version = "0.1.0"
-description = "TUI to locate Codex/Claude processes and activate iTerm2 panes"
+description = "CLI to locate Codex/Claude processes and activate iTerm2 panes"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -11,7 +11,7 @@ dependencies = [
 ]
 
 [project.scripts]
-agent-monitor = "agent_monitor.main:main"
+agx = "agx.main:main"
 
 [tool.pytest.ini_options]
 addopts = "-q"

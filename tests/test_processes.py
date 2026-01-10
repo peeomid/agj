@@ -1,7 +1,7 @@
 import re
 
-from agent_monitor.models import ProcessInfo
-from agent_monitor.processes import ProcessQuery, process_matches, summarize_process
+from agx.models import ProcessInfo
+from agx.processes import ProcessQuery, process_matches, summarize_process
 
 
 def test_process_matches_by_name_and_cmdline():
@@ -50,7 +50,7 @@ def test_process_matches_exact_path_via_which(monkeypatch):
             return "/Users/test/.nvm/bin/claude"
         return None
 
-    monkeypatch.setattr("agent_monitor.processes.shutil.which", fake_which)
+    monkeypatch.setattr("agx.processes.shutil.which", fake_which)
     assert (
         process_matches(
             regexes,

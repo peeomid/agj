@@ -1,4 +1,4 @@
-from agent_monitor.main import main
+from agx.main import main
 
 
 if __name__ == "__main__":

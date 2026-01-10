@@ -1,4 +1,4 @@
-from agent_monitor.cli import (
+from agx.cli import (
     EXIT_AMBIGUOUS,
     EXIT_NO_MATCHES,
     cmd_focus,
@@ -6,7 +6,7 @@ from agent_monitor.cli import (
     format_table,
     select_instance,
 )
-from agent_monitor.models import InstanceInfo, ProcessInfo, SessionInfo
+from agx.models import InstanceInfo, ProcessInfo, SessionInfo
 
 
 class StubBackend:
@@ -108,7 +108,7 @@ def test_cmd_focus_unmapped():
     def build_instances_override(*_):
         return instances
 
-    from agent_monitor import cli
+    from agx import cli
 
     original_build = cli.build_instances
     cli.build_instances = build_instances_override

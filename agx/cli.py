@@ -8,10 +8,10 @@ import sys
 from dataclasses import asdict
 from pathlib import Path
 
-from agent_monitor.iterm import Iterm2Backend, ItermBackend
-from agent_monitor.mapping import map_instances
-from agent_monitor.models import InstanceInfo
-from agent_monitor.processes import ProcessFinder, ProcessQuery, summarize_process
+from agx.iterm import Iterm2Backend, ItermBackend
+from agx.mapping import map_instances
+from agx.models import InstanceInfo
+from agx.processes import ProcessFinder, ProcessQuery, summarize_process
 
 EXIT_NO_MATCHES = 1
 EXIT_AMBIGUOUS = 2
@@ -194,10 +194,33 @@ def count_matches(
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Monitor Codex/Claude iTerm2 sessions")
+    parser = argparse.ArgumentParser(
+        description="Monitor Codex/Claude iTerm2 sessions",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Examples:\n"
+            "  agx list\n"
+            "  agx list --no-with-path --with-session\n"
+            "  agx focus --match claude\n"
+            "  agx focus --id 2\n"
+            "  agx capture --id 1 --lines 50\n"
+        ),
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    list_parser = subparsers.add_parser("list", help="List instances")
+    list_parser = subparsers.add_parser(
+        "list",
+        help="List instances",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description="List matching Codex/Claude instances.",
+        epilog=(
+            "Examples:\n"
+            "  agx list\n"
+            "  agx list --with-session\n"
+            "  agx list --no-with-path --stable\n"
+            "  agx list --pattern codex --pattern claude\n"
+        ),
+    )
     list_parser.add_argument(
         "--pattern",
         action="append",
@@ -226,7 +249,19 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Include iTerm window/tab/session identifiers",
     )
 
-    focus_parser = subparsers.add_parser("focus", help="Activate a session")
+    focus_parser = subparsers.add_parser(
+        "focus",
+        help="Activate a session",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description="Activate the iTerm2 pane for a selected instance.",
+        epilog=(
+            "Examples:\n"
+            "  agx focus --id 1\n"
+            "  agx focus --pid 20218\n"
+            "  agx focus --match claude\n"
+            "  agx focus --session 7DCEFA6B-7465-4572-858D-96A407199891\n"
+        ),
+    )
     focus_parser.add_argument(
         "--pattern",
         action="append",
@@ -242,7 +277,15 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
 
     capture_parser = subparsers.add_parser(
-        "capture", help="Print current output for a session"
+        "capture",
+        help="Print current output for a session",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description="Print current output for a selected session.",
+        epilog=(
+            "Examples:\n"
+            "  agx capture --id 1\n"
+            "  agx capture --match codex --lines 100\n"
+        ),
     )
     capture_parser.add_argument(
         "--pattern",

@@ -1,5 +1,5 @@
-from agent_monitor.mapping import map_instances
-from agent_monitor.models import InstanceInfo, ProcessInfo, SessionInfo
+from agx.mapping import map_instances
+from agx.models import InstanceInfo, ProcessInfo, SessionInfo
 
 
 def test_map_instances_matches_on_ancestry():

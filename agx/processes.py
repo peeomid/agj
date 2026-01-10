@@ -8,7 +8,7 @@ from typing import Sequence
 
 import psutil
 
-from agent_monitor.models import ProcessInfo
+from agx.models import ProcessInfo
 
 
 @dataclass(frozen=True)
