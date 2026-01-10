@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from agx.models import InstanceInfo, ProcessInfo, SessionInfo
+from agj.models import InstanceInfo, ProcessInfo, SessionInfo
 
 
 def map_instances(processes: list[ProcessInfo], sessions: list[SessionInfo]) -> list[InstanceInfo]:

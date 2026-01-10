@@ -1,4 +1,4 @@
-from agx.cli import (
+from agj.cli import (
     EXIT_AMBIGUOUS,
     EXIT_NO_MATCHES,
     cmd_focus,
@@ -6,7 +6,8 @@ from agx.cli import (
     format_table,
     select_instance,
 )
-from agx.models import InstanceInfo, ProcessInfo, SessionInfo
+from agj.formatting import format_detailed
+from agj.models import InstanceInfo, ProcessInfo, SessionInfo
 
 
 class StubBackend:
@@ -38,9 +39,16 @@ def sample_instances():
 
 def test_format_table_stable():
     instances = sample_instances()
-    output = format_table(instances, stable=True, include_path=False, include_session=True)
+    output = format_table(
+        instances,
+        stable=True,
+        include_path=False,
+        include_session=True,
+        include_session_name=True,
+        include_permission=True,
+    )
     lines = output.splitlines()
-    assert lines[0].startswith("id\tpid\tname\tcmd\tsession")
+    assert lines[0].startswith("id\tpid\tname\tIterm session name\tpermission\tcmd\tsession")
     assert "\t" in lines[1]
 
 
@@ -50,15 +58,73 @@ def test_format_table_with_path_column():
     )
     proc = ProcessInfo(pid=11, name="codex", cmdline=["codex"], ancestry=[11, 10])
     instances = [InstanceInfo(process=proc, session=session)]
-    output = format_table(instances, stable=True, include_path=True, include_session=False)
+    output = format_table(
+        instances,
+        stable=True,
+        include_path=True,
+        include_session=False,
+        include_session_name=False,
+        include_permission=False,
+    )
     lines = output.splitlines()
     assert lines[0].endswith("\tpath")
     assert lines[1].endswith("\t/tmp")
 
 
+def test_format_table_with_session_name():
+    session = SessionInfo(
+        session_id="s1", tab_id="t1", window_id="w1", pid=10, title="My Session"
+    )
+    proc = ProcessInfo(pid=11, name="codex", cmdline=["codex"], ancestry=[11, 10])
+    instances = [InstanceInfo(process=proc, session=session)]
+    output = format_table(
+        instances,
+        stable=True,
+        include_path=False,
+        include_session=False,
+        include_session_name=True,
+        include_permission=False,
+    )
+    lines = output.splitlines()
+    assert lines[0] == "id\tpid\tname\tIterm session name\tcmd"
+    assert lines[1].endswith("\tMy Session\tcodex")
+
+
+def test_format_detailed_includes_lines():
+    session = SessionInfo(
+        session_id="s1", tab_id="t1", window_id="w1", pid=10, title="My Session", path="/tmp"
+    )
+    proc = ProcessInfo(pid=11, name="codex", cmdline=["codex"], ancestry=[11, 10])
+    instances = [InstanceInfo(process=proc, session=session)]
+    output = format_detailed(
+        instances,
+        include_session=True,
+        include_session_name=True,
+        include_path=True,
+        include_permission_reason=True,
+        include_permission_output=True,
+        color=False,
+    )
+    assert "[ID 1] PID 11  codex" in output
+    assert "Iterm session name: My Session" in output
+    assert "Permission prompt:" in output
+    assert "Permission reason:" in output
+    assert "Permission output (last 20 lines):" in output
+    assert "Session: w:" in output
+    assert "Path: /tmp" in output
+    assert "Cmd: codex" in output
+
+
 def test_format_table_without_session_column():
     instances = sample_instances()
-    output = format_table(instances, stable=True, include_path=False, include_session=False)
+    output = format_table(
+        instances,
+        stable=True,
+        include_path=False,
+        include_session=False,
+        include_session_name=False,
+        include_permission=False,
+    )
     lines = output.splitlines()
     assert lines[0] == "id\tpid\tname\tcmd"
 
@@ -108,7 +174,7 @@ def test_cmd_focus_unmapped():
     def build_instances_override(*_):
         return instances
 
-    from agx import cli
+    from agj import cli
 
     original_build = cli.build_instances
     cli.build_instances = build_instances_override

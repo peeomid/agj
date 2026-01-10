@@ -5,13 +5,16 @@ import json
 import re
 import shutil
 import sys
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 
-from agx.iterm import Iterm2Backend, ItermBackend
-from agx.mapping import map_instances
-from agx.models import InstanceInfo
-from agx.processes import ProcessFinder, ProcessQuery, summarize_process
+from agj.iterm import Iterm2Backend, ItermBackend
+from agj.mapping import map_instances
+from agj.models import InstanceInfo
+from agj.processes import ProcessFinder, ProcessQuery, summarize_process
+from agj.ansi import color_enabled
+from agj.formatting import format_detailed, format_session
+from agj.permissions import classify_agent, detect_permission_prompt_with_reason
 
 EXIT_NO_MATCHES = 1
 EXIT_AMBIGUOUS = 2
@@ -44,16 +47,6 @@ def build_instances(
     return instances
 
 
-def format_session(instance: InstanceInfo) -> str:
-    if instance.session is None:
-        return "unmapped"
-    return (
-        f"w:{instance.session.window_id} "
-        f"t:{instance.session.tab_id} "
-        f"s:{instance.session.session_id}"
-    )
-
-
 def _truncate(value: str, max_len: int) -> str:
     if len(value) <= max_len:
         return value
@@ -65,9 +58,16 @@ def format_table(
     stable: bool,
     include_path: bool,
     include_session: bool,
+    include_session_name: bool,
+    include_permission: bool,
 ) -> str:
     rows = []
-    header = ["id", "pid", "name", "cmd"]
+    header = ["id", "pid", "name"]
+    if include_session_name:
+        header.append("Iterm session name")
+    if include_permission:
+        header.append("permission")
+    header.append("cmd")
     if include_session:
         header.append("session")
     if include_path:
@@ -82,11 +82,26 @@ def format_table(
             path_value = inst.session.path if inst.session else ""
             if not stable:
                 path_value = _truncate(path_value, 60)
+        session_name = ""
+        if include_session_name:
+            session_name = inst.session.title if inst.session and inst.session.title else ""
+            if not stable:
+                session_name = _truncate(session_name, 40)
+        permission_value = ""
+        if include_permission:
+            if inst.permission_prompt is True:
+                permission_value = "yes"
+            elif inst.permission_prompt is False:
+                permission_value = "no"
+            else:
+                permission_value = "unknown"
         rows.append(
             [
                 str(idx),
                 str(inst.process.pid),
                 inst.process.name,
+                *([session_name] if include_session_name else []),
+                *([permission_value] if include_permission else []),
                 cmd,
                 *([format_session(inst)] if include_session else []),
                 *([path_value] if include_path else []),
@@ -116,6 +131,9 @@ def serialize_instances(instances: list[InstanceInfo]) -> str:
                 "id": idx,
                 "process": asdict(inst.process),
                 "session": asdict(inst.session) if inst.session else None,
+                "permission_prompt": inst.permission_prompt,
+                "permission_reason": inst.permission_reason,
+                "permission_output": inst.permission_output,
             }
         )
     return json.dumps(payload, indent=2)
@@ -125,8 +143,11 @@ def filter_instances(
     instances: list[InstanceInfo],
     no_unmapped: bool,
     limit: int | None,
+    permission_only: bool,
 ) -> list[InstanceInfo]:
     filtered = [inst for inst in instances if not no_unmapped or inst.session]
+    if permission_only:
+        filtered = [inst for inst in filtered if inst.permission_prompt is True]
     if limit is not None:
         filtered = filtered[:limit]
     return filtered
@@ -199,11 +220,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "Examples:\n"
-            "  agx list\n"
-            "  agx list --no-with-path --with-session\n"
-            "  agx focus --match claude\n"
-            "  agx focus --id 2\n"
-            "  agx capture --id 1 --lines 50\n"
+            "  agj list\n"
+            "  agj list --no-with-path --with-session\n"
+            "  agj focus --match claude\n"
+            "  agj focus --id 2\n"
+            "  agj capture --id 1 --lines 50\n"
         ),
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -215,10 +236,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         description="List matching Codex/Claude instances.",
         epilog=(
             "Examples:\n"
-            "  agx list\n"
-            "  agx list --with-session\n"
-            "  agx list --no-with-path --stable\n"
-            "  agx list --pattern codex --pattern claude\n"
+            "  agj list\n"
+            "  agj list --with-session\n"
+            "  agj list --no-with-path --stable\n"
+            "  agj list --pattern codex --pattern claude\n"
         ),
     )
     list_parser.add_argument(
@@ -248,6 +269,39 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         help="Include iTerm window/tab/session identifiers",
     )
+    list_parser.add_argument(
+        "--with-session-name",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Include iTerm session name (default: on)",
+    )
+    list_parser.add_argument(
+        "--permission-only",
+        action="store_true",
+        help="Show only instances asking for permission",
+    )
+    list_parser.add_argument(
+        "--no-permission-check",
+        action="store_true",
+        help="Skip permission prompt detection",
+    )
+    list_parser.add_argument(
+        "--permission-debug",
+        action="store_true",
+        help="Show why a permission prompt was detected",
+    )
+    list_parser.add_argument(
+        "--view",
+        choices=["detail", "table"],
+        default="detail",
+        help="Output format (default: detail)",
+    )
+    list_parser.add_argument(
+        "--color",
+        choices=["auto", "always", "never"],
+        default="auto",
+        help="Colorize output (default: auto)",
+    )
 
     focus_parser = subparsers.add_parser(
         "focus",
@@ -256,10 +310,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         description="Activate the iTerm2 pane for a selected instance.",
         epilog=(
             "Examples:\n"
-            "  agx focus --id 1\n"
-            "  agx focus --pid 20218\n"
-            "  agx focus --match claude\n"
-            "  agx focus --session 7DCEFA6B-7465-4572-858D-96A407199891\n"
+            "  agj focus --id 1\n"
+            "  agj focus --pid 20218\n"
+            "  agj focus --match claude\n"
+            "  agj focus --session 7DCEFA6B-7465-4572-858D-96A407199891\n"
         ),
     )
     focus_parser.add_argument(
@@ -283,8 +337,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         description="Print current output for a selected session.",
         epilog=(
             "Examples:\n"
-            "  agx capture --id 1\n"
-            "  agx capture --match codex --lines 100\n"
+            "  agj capture --id 1\n"
+            "  agj capture --match codex --lines 100\n"
         ),
     )
     capture_parser.add_argument(
@@ -312,8 +366,16 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 def cmd_list(args: argparse.Namespace, backend: ItermBackend) -> int:
     finder = build_finder(args.patterns)
     include_path = True if args.with_path is None else args.with_path
+    include_session_name = True if args.with_session_name is None else args.with_session_name
     instances = build_instances(finder, backend, include_path=include_path)
-    instances = filter_instances(instances, args.no_unmapped, args.max)
+    if not args.no_permission_check:
+        instances = _with_permission_status(instances, backend)
+    instances = filter_instances(
+        instances,
+        args.no_unmapped,
+        args.max,
+        args.permission_only,
+    )
     if not instances:
         print("No matching instances.")
         return EXIT_NO_MATCHES
@@ -322,8 +384,61 @@ def cmd_list(args: argparse.Namespace, backend: ItermBackend) -> int:
         print(serialize_instances(instances))
         return 0
 
-    print(format_table(instances, args.stable, include_path, args.with_session))
+    hint = 'Hint: Use "agj focus --id N" (example: agj focus --id 1)'
+    color = color_enabled(args.color)
+    if args.view == "detail" and not args.stable:
+        print(
+            format_detailed(
+                instances,
+                include_session=args.with_session,
+                include_session_name=include_session_name,
+                include_path=include_path,
+                include_permission_reason=args.permission_debug,
+                include_permission_output=args.permission_debug,
+                color=color,
+            )
+        )
+        print("")
+        print(hint)
+        return 0
+
+    print(
+        format_table(
+            instances,
+            args.stable,
+            include_path,
+            args.with_session,
+            include_session_name,
+            include_permission=True,
+        )
+    )
+    print("")
+    print(hint)
     return 0
+
+
+def _with_permission_status(
+    instances: list[InstanceInfo],
+    backend: ItermBackend,
+) -> list[InstanceInfo]:
+    updated: list[InstanceInfo] = []
+    for inst in instances:
+        if inst.session is None:
+            updated.append(replace(inst, permission_prompt=None))
+            continue
+        output = backend.capture_output(inst.session.session_id, lines=120)
+        kind = classify_agent(inst.process)
+        permission, reason = detect_permission_prompt_with_reason(output, kind)
+        last_lines = "\n".join(output.splitlines()[-20:]) if output else ""
+        updated.append(
+            replace(
+                inst,
+                permission_prompt=permission,
+                permission_reason=reason,
+                permission_output=last_lines,
+            )
+        )
+    return updated
 
 
 def cmd_focus(args: argparse.Namespace, backend: ItermBackend) -> int:

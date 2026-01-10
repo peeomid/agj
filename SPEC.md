@@ -15,7 +15,7 @@ Provide a Python TUI that lists running Codex and Claude instances, lets the use
 - Persistent state or background daemon.
 
 ## User Experience
-- Launch via CLI: `agx`.
+- Launch via CLI: `agj`.
 - UI shows a list of matched instances with metadata:
   - Index
   - Process name / command
@@ -49,10 +49,10 @@ When `o` is pressed for a selected instance:
 3) Activate the session itself.
 
 ## Architecture
-- `agx/processes.py`: process discovery + filtering.
-- `agx/iterm.py`: iTerm2 API backend.
-- `agx/tui.py`: prompt_toolkit UI.
-- `agx/app.py`: orchestration + refresh.
+- `agj/processes.py`: process discovery + filtering.
+- `agj/iterm.py`: iTerm2 API backend.
+- `agj/tui.py`: prompt_toolkit UI.
+- `agj/app.py`: orchestration + refresh.
 
 ## Dependencies
 - `psutil`

@@ -4,11 +4,11 @@ import argparse
 import asyncio
 from dataclasses import dataclass
 
-from agx.iterm import Iterm2Backend, ItermBackend
-from agx.mapping import map_instances
-from agx.models import InstanceInfo
-from agx.processes import ProcessFinder, ProcessQuery
-from agx.tui import MonitorTui, TuiState
+from agj.iterm import Iterm2Backend, ItermBackend
+from agj.mapping import map_instances
+from agj.models import InstanceInfo
+from agj.processes import ProcessFinder, ProcessQuery
+from agj.tui import MonitorTui, TuiState
 
 
 @dataclass

@@ -1,4 +1,4 @@
-from agx.cli import main
+from agj.cli import main
 
 
 if __name__ == "__main__":

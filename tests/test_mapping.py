@@ -1,5 +1,5 @@
-from agx.mapping import map_instances
-from agx.models import InstanceInfo, ProcessInfo, SessionInfo
+from agj.mapping import map_instances
+from agj.models import InstanceInfo, ProcessInfo, SessionInfo
 
 
 def test_map_instances_matches_on_ancestry():

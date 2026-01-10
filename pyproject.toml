@@ -1,9 +1,19 @@
 [project]
-name = "agx"
+name = "agj"
 version = "0.1.0"
 description = "CLI to locate Codex/Claude processes and activate iTerm2 panes"
 readme = "README.md"
 requires-python = ">=3.11"
+license = { text = "MIT" }
+keywords = ["cli", "iterm2", "agents", "codex", "claude"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+]
 dependencies = [
     "iterm2>=2.9",
     "psutil>=5.9.8",
@@ -11,7 +21,16 @@ dependencies = [
 ]
 
 [project.scripts]
-agx = "agx.main:main"
+agj = "agj.main:main"
+
+[project.urls]
+Homepage = "https://example.com/agj"
+Repository = "https://example.com/agj"
+Issues = "https://example.com/agj/issues"
+
+[build-system]
+requires = ["hatchling>=1.24.0"]
+build-backend = "hatchling.build"
 
 [tool.pytest.ini_options]
 addopts = "-q"
@@ -19,3 +38,15 @@ pythonpath = ["."]
 
 [tool.uv]
 package = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["agj"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "agj",
+    "agj/permission_patterns.txt",
+    "README.md",
+    "LICENSE",
+    "pyproject.toml",
+]

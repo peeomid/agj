@@ -26,3 +26,6 @@ class SessionInfo:
 class InstanceInfo:
     process: ProcessInfo
     session: SessionInfo | None
+    permission_prompt: bool | None = None
+    permission_reason: str | None = None
+    permission_output: str | None = None

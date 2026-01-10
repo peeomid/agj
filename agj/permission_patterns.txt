@@ -1,0 +1,11 @@
+# One regex per line, grouped by section.
+# Lines starting with # are comments.
+
+[codex]
+Would you like to run the following command\?
+Yes, and don't ask again for this command
+
+[claude]
+Do you want to proceed\?
+Do you want to make this edit to
+No, and tell Claude what to do differently

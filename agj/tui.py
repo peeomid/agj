@@ -10,8 +10,8 @@ from prompt_toolkit.layout import HSplit, Layout, Window
 from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.styles import Style
 
-from agx.models import InstanceInfo
-from agx.processes import summarize_process
+from agj.models import InstanceInfo
+from agj.processes import summarize_process
 
 
 @dataclass

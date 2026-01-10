@@ -4,7 +4,7 @@ import asyncio
 from dataclasses import dataclass
 from typing import Protocol
 
-from agx.models import SessionInfo
+from agj.models import SessionInfo
 
 
 class ItermBackend(Protocol):

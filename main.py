@@ -1,4 +1,4 @@
-from agx.main import main
+from agj.main import main
 
 
 if __name__ == "__main__":
