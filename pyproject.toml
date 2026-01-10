@@ -16,6 +16,7 @@ classifiers = [
 ]
 dependencies = [
     "iterm2>=2.9",
+    "prompt_toolkit>=3.0.48",
     "psutil>=5.9.8",
     "pytest>=8.2.0",
 ]

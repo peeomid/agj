@@ -3,35 +3,21 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import shutil
 import sys
-from dataclasses import asdict, replace
-from pathlib import Path
+from dataclasses import asdict
 
 from agj.iterm import Iterm2Backend, ItermBackend
 from agj.mapping import map_instances
 from agj.models import InstanceInfo
-from agj.processes import ProcessFinder, ProcessQuery, summarize_process
+from agj.processes import ProcessFinder, summarize_process
 from agj.ansi import color_enabled
 from agj.formatting import format_detailed, format_session
-from agj.permissions import classify_agent, detect_permission_prompt_with_reason
+from agj.service import ListOptions, build_finder, list_instances
+from agj.app import main as tui_main
 
 EXIT_NO_MATCHES = 1
 EXIT_AMBIGUOUS = 2
 EXIT_ITERM_UNAVAILABLE = 3
-
-
-def _resolve_path(cmd: str) -> str | None:
-    found = shutil.which(cmd)
-    if not found:
-        return None
-    return str(Path(found).resolve())
-
-
-def build_finder(patterns: list[str] | None) -> ProcessFinder:
-    use_patterns = patterns or ["codex", "claude"]
-    exact_paths = [p for p in (_resolve_path("codex"), _resolve_path("claude")) if p]
-    return ProcessFinder(ProcessQuery(patterns=use_patterns, exact_paths=exact_paths))
 
 
 def build_instances(
@@ -360,22 +346,32 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Capture last N lines from scrollback+visible instead of current view",
     )
 
+    tui_parser = subparsers.add_parser(
+        "tui",
+        help="Open the interactive TUI",
+    )
+    tui_parser.add_argument(
+        "--pattern",
+        action="append",
+        dest="patterns",
+        help="Regex pattern to match process name/cmdline (repeatable)",
+    )
+
     return parser.parse_args(argv)
 
 
 def cmd_list(args: argparse.Namespace, backend: ItermBackend) -> int:
-    finder = build_finder(args.patterns)
     include_path = True if args.with_path is None else args.with_path
     include_session_name = True if args.with_session_name is None else args.with_session_name
-    instances = build_instances(finder, backend, include_path=include_path)
-    if not args.no_permission_check:
-        instances = _with_permission_status(instances, backend)
-    instances = filter_instances(
-        instances,
-        args.no_unmapped,
-        args.max,
-        args.permission_only,
+    options = ListOptions(
+        patterns=args.patterns,
+        include_path=include_path,
+        permission_check=not args.no_permission_check,
+        permission_only=args.permission_only,
+        no_unmapped=args.no_unmapped,
+        limit=args.max,
     )
+    instances = list_instances(backend, options)
     if not instances:
         print("No matching instances.")
         return EXIT_NO_MATCHES
@@ -415,30 +411,6 @@ def cmd_list(args: argparse.Namespace, backend: ItermBackend) -> int:
     print("")
     print(hint)
     return 0
-
-
-def _with_permission_status(
-    instances: list[InstanceInfo],
-    backend: ItermBackend,
-) -> list[InstanceInfo]:
-    updated: list[InstanceInfo] = []
-    for inst in instances:
-        if inst.session is None:
-            updated.append(replace(inst, permission_prompt=None))
-            continue
-        output = backend.capture_output(inst.session.session_id, lines=120)
-        kind = classify_agent(inst.process)
-        permission, reason = detect_permission_prompt_with_reason(output, kind)
-        last_lines = "\n".join(output.splitlines()[-20:]) if output else ""
-        updated.append(
-            replace(
-                inst,
-                permission_prompt=permission,
-                permission_reason=reason,
-                permission_output=last_lines,
-            )
-        )
-    return updated
 
 
 def cmd_focus(args: argparse.Namespace, backend: ItermBackend) -> int:
@@ -546,4 +518,7 @@ def main(argv: list[str] | None = None) -> int:
             print("One of --id/--pid/--session/--match is required.")
             return EXIT_NO_MATCHES
         return cmd_capture(args, backend)
+    if args.command == "tui":
+        tui_main(patterns=getattr(args, "patterns", None))
+        return 0
     return 0
