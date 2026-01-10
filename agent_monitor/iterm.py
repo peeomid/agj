@@ -8,16 +8,19 @@ from agent_monitor.models import SessionInfo
 
 
 class ItermBackend(Protocol):
-    def list_sessions(self) -> list[SessionInfo]:
+    def list_sessions(self, include_path: bool = False) -> list[SessionInfo]:
         raise NotImplementedError
 
     def activate(self, session: SessionInfo) -> None:
         raise NotImplementedError
 
+    def capture_output(self, session_id: str, lines: int | None = None) -> str:
+        raise NotImplementedError
+
 
 @dataclass
 class Iterm2Backend:
-    def list_sessions(self) -> list[SessionInfo]:
+    def list_sessions(self, include_path: bool = False) -> list[SessionInfo]:
         try:
             import iterm2
         except Exception as exc:  # pragma: no cover - import guard
@@ -30,6 +33,9 @@ class Iterm2Backend:
                     for session in tab.sessions:
                         pid = await session.async_get_variable("pid")
                         title = session.name
+                        path = None
+                        if include_path:
+                            path = await session.async_get_variable("path")
                         sessions.append(
                             SessionInfo(
                                 session_id=session.session_id,
@@ -37,6 +43,7 @@ class Iterm2Backend:
                                 window_id=window.window_id,
                                 pid=pid,
                                 title=title,
+                                path=path,
                             )
                         )
             return sessions
@@ -60,3 +67,37 @@ class Iterm2Backend:
             await asyncio.sleep(0)
 
         iterm2.Connection().run_until_complete(_work, retry=False)
+
+    def capture_output(self, session_id: str, lines: int | None = None) -> str:
+        try:
+            import iterm2
+        except Exception as exc:  # pragma: no cover - import guard
+            raise RuntimeError("iterm2 Python package is not available") from exc
+
+        async def _work(conn):
+            app = await iterm2.async_get_app(conn)
+            session = app.get_session_by_id(session_id)
+            if session is None:
+                return ""
+            line_info = await session.async_get_line_info()
+            if lines is None:
+                start = line_info.first_visible_line_number
+                count = line_info.mutable_area_height
+            else:
+                total = (
+                    line_info.overflow
+                    + line_info.scrollback_buffer_height
+                    + line_info.mutable_area_height
+                )
+                count = min(lines, max(total - line_info.overflow, 0))
+                start = max(line_info.overflow, total - count)
+
+            contents = await session.async_get_contents(start, count)
+            output = ""
+            for line in contents:
+                output += line.string
+                if line.hard_eol:
+                    output += "\n"
+            return output
+
+        return iterm2.Connection().run_until_complete(_work, retry=False)

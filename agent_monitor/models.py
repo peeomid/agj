@@ -19,6 +19,7 @@ class SessionInfo:
     window_id: str
     pid: int | None
     title: str | None
+    path: str | None = None
 
 
 @dataclass(frozen=True)

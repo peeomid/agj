@@ -14,7 +14,7 @@ class StubBackend:
         self._sessions = sessions
         self.activated = None
 
-    def list_sessions(self):
+    def list_sessions(self, include_path: bool = False):
         return self._sessions
 
     def activate(self, session):
@@ -38,10 +38,34 @@ def sample_instances():
 
 def test_format_table_stable():
     instances = sample_instances()
-    output = format_table(instances, stable=True)
+    output = format_table(instances, stable=True, include_path=False, include_session=True)
     lines = output.splitlines()
     assert lines[0].startswith("id\tpid\tname\tcmd\tsession")
     assert "\t" in lines[1]
+
+
+def test_format_table_with_path_column():
+    session = SessionInfo(
+        session_id="s1", tab_id="t1", window_id="w1", pid=10, title=None, path="/tmp"
+    )
+    proc = ProcessInfo(pid=11, name="codex", cmdline=["codex"], ancestry=[11, 10])
+    instances = [InstanceInfo(process=proc, session=session)]
+    output = format_table(instances, stable=True, include_path=True, include_session=False)
+    lines = output.splitlines()
+    assert lines[0].endswith("\tpath")
+    assert lines[1].endswith("\t/tmp")
+
+
+def test_format_table_without_session_column():
+    instances = sample_instances()
+    output = format_table(instances, stable=True, include_path=False, include_session=False)
+    lines = output.splitlines()
+    assert lines[0] == "id\tpid\tname\tcmd"
+
+
+def test_default_include_path_logic():
+    include_path = True if None is None else False
+    assert include_path is True
 
 
 def test_select_instance_by_match():
