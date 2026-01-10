@@ -1,0 +1,21 @@
+[project]
+name = "agent-monitor"
+version = "0.1.0"
+description = "TUI to locate Codex/Claude processes and activate iTerm2 panes"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "iterm2>=2.9",
+    "psutil>=5.9.8",
+    "pytest>=8.2.0",
+]
+
+[project.scripts]
+agent-monitor = "agent_monitor.main:main"
+
+[tool.pytest.ini_options]
+addopts = "-q"
+pythonpath = ["."]
+
+[tool.uv]
+package = true
