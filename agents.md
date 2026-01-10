@@ -1,17 +1,22 @@
-# AGX Project Guide
+# AGJ Project Guide
 
 ## Overview
-AGX is a CLI to monitor running AI agent processes (Codex/Claude), map them to iTerm2 sessions, and quickly focus or capture their output.
+AGJ is a CLI to monitor running AI agent processes (Codex/Claude), map them to iTerm2 sessions, and quickly focus or capture their output.
 
 ## Commands
 - `agj list` — list running instances
 - `agj focus --id N|--pid PID|--session ID|--match REGEX` — focus an instance in iTerm2
 - `agj capture --id N|--pid PID|--session ID|--match REGEX [--lines N]` — capture output
+- `agj tui` — open the interactive TUI
 
 ## Common Flags
 - `list --with-session` — include iTerm window/tab/session identifiers
+- `list --with-session-name / --no-with-session-name` — show/hide iTerm session name
 - `list --with-path / --no-with-path` — show/hide working directory (default: on)
-- `list --stable` — tab-separated output for scripting
+- `list --permission-only` — show only instances asking for permission
+- `list --permission-debug` — explain why a permission prompt was detected
+- `list --json` — JSON output for scripting
+- `list --stable` — tab-separated output with header
 
 ## How It Works
 - Uses `psutil` to find Codex/Claude processes
@@ -26,7 +31,7 @@ AGX is a CLI to monitor running AI agent processes (Codex/Claude), map them to i
 
 ## Development
 - Install deps: `uv sync`
-- Run tests: `uv run pytest`
+- Run tests: `uv run -- python -m pytest`
 - Run locally: `uv run agj list`
 
 ## Troubleshooting

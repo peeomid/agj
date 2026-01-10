@@ -2,6 +2,8 @@
 
 AGJ is a tiny CLI to watch coding agents (Codex / Claude) running in iTerm2, tell you when they’re waiting for permission, and jump to the right pane fast.
 
+![AGJ TUI screenshot](agj.png)
+
 ## What it does
 - Lists active agent sessions in iTerm2
 - Shows whether an agent is asking for permission
@@ -25,6 +27,11 @@ pip install agj
 List active agents:
 ```
 agj list
+```
+
+Open the TUI:
+```
+agj tui
 ```
 
 Jump to one:
