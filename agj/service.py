@@ -7,6 +7,7 @@ import shutil
 from agj.iterm import ItermBackend
 from agj.mapping import map_instances
 from agj.models import InstanceInfo
+from agj.output_utils import has_visible_text, normalize_output
 from agj.permissions import classify_agent, detect_permission_prompt_with_reason
 from agj.processes import ProcessFinder, ProcessQuery
 
@@ -65,9 +66,14 @@ def _with_permission_status(
             updated.append(replace(inst, permission_prompt=None, permission_reason=None))
             continue
         output = backend.capture_output(inst.session.session_id, lines=permission_lines)
+        output = normalize_output(output)
+        if not has_visible_text(output):
+            output = normalize_output(
+                backend.capture_output(inst.session.session_id, lines=None)
+            )
         kind = classify_agent(inst.process)
         permission, reason = detect_permission_prompt_with_reason(output, kind)
-        last_lines = "\n".join(output.splitlines()[-20:]) if output else ""
+        last_lines = _last_nonempty_lines(output, 20) if output else ""
         updated.append(
             replace(
                 inst,
@@ -77,3 +83,12 @@ def _with_permission_status(
             )
         )
     return updated
+
+
+def _last_nonempty_lines(output: str, count: int) -> str:
+    if not output:
+        return ""
+    lines = output.splitlines()
+    while lines and not lines[-1].strip():
+        lines.pop()
+    return "\n".join(lines[-count:])

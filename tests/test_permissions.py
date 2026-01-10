@@ -11,6 +11,9 @@ def test_classify_agent():
 
 def test_detect_permission_prompt_codex():
     output = "Would you like to run the following command?"
+    assert detect_permission_prompt(output, "codex") is False
+
+    output = "Would you like to run the following command?\n› 1. Yes, proceed (y)"
     assert detect_permission_prompt(output, "codex") is True
     found, reason = detect_permission_prompt_with_reason(output, "codex")
     assert found is True
@@ -19,6 +22,9 @@ def test_detect_permission_prompt_codex():
 
 def test_detect_permission_prompt_claude():
     output = "No, and tell Claude what to do differently (esc)"
+    assert detect_permission_prompt(output, "claude") is False
+
+    output = "Do you want to proceed?\n❯ 1. Yes\nEsc to cancel"
     assert detect_permission_prompt(output, "claude") is True
     found, reason = detect_permission_prompt_with_reason(output, "claude")
     assert found is True

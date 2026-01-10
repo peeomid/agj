@@ -13,3 +13,4 @@ def test_tui_state_defaults():
     assert state.permission_only is False
     assert state.hide_unmapped is False
     assert state.output_lines == []
+    assert state.output_loading is False

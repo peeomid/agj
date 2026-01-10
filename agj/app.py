@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 from agj.iterm import Iterm2Backend, ItermBackend
 from agj.models import InstanceInfo
+from agj.output_utils import has_visible_text, normalize_output, split_and_trim
 from agj.service import ListOptions, list_instances
 from agj.tui import MonitorTui, TuiState
 
@@ -54,17 +55,27 @@ class MonitorController:
         if not self.state.instances:
             self.state.output_lines = []
             self.state.last_output_at = ""
+            self.state.output_loading = False
             return
         instance = self.state.instances[self.state.selected_index]
         if instance.session is None:
             self.state.output_lines = []
             self.state.last_output_at = ""
+            self.state.output_loading = False
             return
         output = await asyncio.to_thread(
             self.backend.capture_output, instance.session.session_id, 20
         )
-        self.state.output_lines = output.splitlines()
+        output = normalize_output(output)
+        if not has_visible_text(output):
+            output = normalize_output(
+                await asyncio.to_thread(
+                    self.backend.capture_output, instance.session.session_id, None
+                )
+            )
+        self.state.output_lines = split_and_trim(output)
         self.state.last_output_at = datetime.now().strftime("%H:%M:%S")
+        self.state.output_loading = False
 
     async def toggle_permission_only(self) -> None:
         self.state.permission_only = not self.state.permission_only

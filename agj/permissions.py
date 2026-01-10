@@ -83,14 +83,69 @@ def detect_permission_prompt_with_reason(
 ) -> tuple[bool, str | None]:
     if not output or agent_kind is None:
         return False, None
+    recent = _recent_text(output, 200)
     if agent_kind == "codex":
         for regex in patterns.codex:
-            if regex.search(output):
-                return True, f"codex matched /{regex.pattern}/"
+            match = regex.search(recent)
+            if match and _has_codex_confirm(recent):
+                snippet = _line_snippet(recent, match.start())
+                if '"' in snippet:
+                    continue
+                return True, f"codex matched /{regex.pattern}/ in: {snippet}"
         return False, None
     if agent_kind == "claude":
         for regex in patterns.claude:
-            if regex.search(output):
-                return True, f"claude matched /{regex.pattern}/"
+            match = regex.search(recent)
+            if match and _has_claude_confirm(recent):
+                snippet = _line_snippet(recent, match.start())
+                if '"' in snippet:
+                    continue
+                return True, f"claude matched /{regex.pattern}/ in: {snippet}"
         return False, None
     return False, None
+
+
+def _line_snippet(text: str, index: int) -> str:
+    if not text:
+        return ""
+    start = text.rfind("\n", 0, index)
+    end = text.find("\n", index)
+    if start == -1:
+        start = 0
+    else:
+        start += 1
+    if end == -1:
+        end = len(text)
+    snippet = text[start:end].strip()
+    if len(snippet) > 120:
+        snippet = snippet[:117] + "..."
+    return snippet
+
+
+def _recent_text(text: str, max_lines: int) -> str:
+    if not text:
+        return ""
+    lines = text.splitlines()
+    return "\n".join(lines[-max_lines:])
+
+
+def _has_codex_confirm(text: str) -> bool:
+    for line in text.splitlines():
+        if '"' in line or ":" in line:
+            continue
+        if re.search(r"^\s*[›>]\s*1\.", line):
+            return True
+        if re.search(r"^\s*1\.\s*Yes, proceed", line, re.IGNORECASE):
+            return True
+    return False
+
+
+def _has_claude_confirm(text: str) -> bool:
+    for line in text.splitlines():
+        if '"' in line or ":" in line:
+            continue
+        if re.search(r"^\s*[❯>]\s*1\.", line):
+            return True
+        if re.search(r"^\s*1\.\s*Yes", line, re.IGNORECASE):
+            return True
+    return False

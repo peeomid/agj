@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Awaitable, Callable
 
 from prompt_toolkit.application import Application
+from prompt_toolkit.application import get_app
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout import HSplit, Layout, VSplit, Window
 from prompt_toolkit.layout.controls import FormattedTextControl
@@ -24,6 +25,7 @@ class TuiState:
     hide_unmapped: bool = False
     output_lines: list[str] = None
     last_output_at: str = ""
+    output_loading: bool = False
 
     def __post_init__(self) -> None:
         if self.output_lines is None:
@@ -51,18 +53,15 @@ class MonitorTui:
         self.detail_control = FormattedTextControl(self._render_detail)
         self.output_control = FormattedTextControl(self._render_output)
         self.status_control = FormattedTextControl(self._render_status)
+        self.separator_control = FormattedTextControl(self._render_separator)
         self.kb = self._build_keybindings()
         self.app = Application(
             layout=Layout(
                 HSplit(
                     [
                         Window(self.header_control, height=1),
-                        Window(
-                            self.list_control,
-                            always_hide_cursor=True,
-                            height=10,
-                            wrap_lines=False,
-                        ),
+                        Window(self.list_control, always_hide_cursor=True, wrap_lines=True),
+                        Window(self.separator_control, height=1),
                         HSplit(
                             [
                                 Window(self.detail_control, height=7, wrap_lines=True),
@@ -118,22 +117,29 @@ class MonitorTui:
             )
             return lines
 
+        total_width = self._terminal_width()
+        widths = _list_widths(total_width)
+        header = _format_list_header(widths)
+        lines.append(("class:header", header))
+        lines.append(("", "\n"))
+
         for idx, instance in enumerate(self.state.instances):
             prefix = "> " if idx == self.state.selected_index else "  "
             style = "class:selected" if idx == self.state.selected_index else ""
-            proc = summarize_process(instance.process)
+            proc = instance.process.name
             session_name = (
                 instance.session.title if instance.session and instance.session.title else ""
             )
             perm = _permission_value(instance.permission_prompt)
             perm_style = _permission_style(instance.permission_prompt)
-            max_width = 48
-            suffix = " | perm: "
-            base = f"{prefix}[ID {idx + 1}] {proc} | session: {session_name}"
-            base = _truncate_to_fit(base, max_width - len(suffix) - len(perm))
-            line = base + suffix
-            lines.append((style, line))
-            lines.append((perm_style, perm))
+            id_col = _pad(_truncate(f"ID {idx + 1}", widths["id"]), widths["id"])
+            pid_col = _pad(_truncate(str(instance.process.pid), widths["pid"]), widths["pid"])
+            proc_col = _pad(_truncate(proc, widths["proc"]), widths["proc"])
+            session_col = _pad(_truncate(session_name, widths["session"]), widths["session"])
+            perm_col = _pad(_truncate(perm, widths["perm"]), widths["perm"])
+            row = f"{prefix}{id_col} {pid_col} {proc_col} {session_col} "
+            lines.append((style, row))
+            lines.append((perm_style, perm_col))
             lines.append(("", "\n"))
         if lines:
             lines.pop()
@@ -143,6 +149,8 @@ class MonitorTui:
         instance = self._selected_instance()
         if instance is None:
             return [("class:dim", "No selection")]
+        if self.state.output_loading:
+            return [("class:dim", "Loading details...")]
         session_name = (
             instance.session.title if instance.session and instance.session.title else ""
         )
@@ -166,6 +174,9 @@ class MonitorTui:
     def _render_output(self):
         header = f"Output (last 20 lines) • {self.state.last_output_at}"
         lines = [("class:label", header), ("", "\n")]
+        if self.state.output_loading:
+            lines.append(("class:dim", "Loading output..."))
+            return lines
         if not self.state.output_lines:
             lines.append(("class:dim", "(empty)"))
             return lines
@@ -175,6 +186,9 @@ class MonitorTui:
         if lines:
             lines.pop()
         return lines
+
+    def _render_separator(self):
+        return [("class:dim", "────────────────────────────────────────────────────────────")]
 
     def _render_status(self):
         return (
@@ -192,6 +206,7 @@ class MonitorTui:
             self.state.selected_index = min(
                 self.state.selected_index + 1, len(self.state.instances) - 1
             )
+            self._mark_loading()
             event.app.invalidate()
 
         @kb.add("k")
@@ -200,6 +215,7 @@ class MonitorTui:
             if not self.state.instances:
                 return
             self.state.selected_index = max(self.state.selected_index - 1, 0)
+            self._mark_loading()
             event.app.invalidate()
 
         @kb.add("o")
@@ -239,12 +255,23 @@ class MonitorTui:
             self.app.invalidate()
             await asyncio.sleep(3)
 
+    def _mark_loading(self) -> None:
+        self.state.output_loading = True
+        self.state.output_lines = []
+        self.state.last_output_at = ""
+
     def _selected_instance(self) -> InstanceInfo | None:
         if not self.state.instances:
             return None
         if self.state.selected_index < 0 or self.state.selected_index >= len(self.state.instances):
             return None
         return self.state.instances[self.state.selected_index]
+
+    def _terminal_width(self) -> int:
+        try:
+            return get_app().output.get_size().columns
+        except Exception:
+            return 100
 
 
 def _permission_value(value: bool | None) -> str:
@@ -262,6 +289,46 @@ def _permission_style(value: bool | None) -> str:
         return "class:perm_no"
     return "class:perm_unknown"
 
+
+def _list_widths(total: int) -> dict[str, int]:
+    total = max(total, 60)
+    id_w = 7
+    pid_w = 7
+    perm_w = 7
+    # Reserve spaces: prefix(2) + 4 spaces between columns
+    remaining = total - (2 + id_w + pid_w + perm_w + 4)
+    proc_w = max(18, int(remaining * 0.4))
+    session_w = max(18, remaining - proc_w)
+    return {
+        "id": id_w,
+        "pid": pid_w,
+        "proc": proc_w,
+        "session": session_w,
+        "perm": perm_w,
+    }
+
+
+def _format_list_header(widths: dict[str, int]) -> str:
+    id_col = _pad("ID", widths["id"])
+    pid_col = _pad("PID", widths["pid"])
+    proc_col = _pad("Process", widths["proc"])
+    session_col = _pad("Iterm session name", widths["session"])
+    perm_col = _pad("Asking", widths["perm"])
+    return f"  {id_col} {pid_col} {proc_col} {session_col} {perm_col}"
+
+
+def _truncate(value: str, max_len: int) -> str:
+    if len(value) <= max_len:
+        return value
+    if max_len <= 1:
+        return value[:max_len]
+    return value[: max_len - 1] + "…"
+
+
+def _pad(value: str, width: int) -> str:
+    if len(value) >= width:
+        return value
+    return value + (" " * (width - len(value)))
 
 def _truncate_to_fit(value: str, max_len: int) -> str:
     if max_len < 0:

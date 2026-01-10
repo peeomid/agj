@@ -34,7 +34,7 @@ def test_list_instances_permission_only(monkeypatch):
     backend = StubBackend(
         sessions,
         outputs={
-            "s1": "Would you like to run the following command?",
+            "s1": "Would you like to run the following command?\n› 1. Yes, proceed (y)",
             "s2": "no prompt",
         },
     )

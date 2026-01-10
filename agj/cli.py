@@ -9,6 +9,7 @@ from dataclasses import asdict
 from agj.iterm import Iterm2Backend, ItermBackend
 from agj.mapping import map_instances
 from agj.models import InstanceInfo
+from agj.output_utils import normalize_output, trim_trailing_blank_lines
 from agj.processes import ProcessFinder, summarize_process
 from agj.ansi import color_enabled
 from agj.formatting import format_detailed, format_session
@@ -499,7 +500,7 @@ def cmd_capture(args: argparse.Namespace, backend: ItermBackend) -> int:
         print("iTerm2 API unavailable.")
         return EXIT_ITERM_UNAVAILABLE
 
-    sys.stdout.write(output)
+    sys.stdout.write(trim_trailing_blank_lines(normalize_output(output)))
     return 0
 
 
