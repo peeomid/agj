@@ -1,19 +1,19 @@
 # AGJ
 
-AGJ monitors Codex/Claude sessions in iTerm2 so you never miss a permission prompt while multitasking. It shows which agent is waiting for approval and lets you jump to the right pane fast.
+AGJ monitors Codex/Claude sessions in iTerm2 so you never miss a permission prompt while multitasking. It shows which agent is waiting for approval and lets you go to the right pane fast.
 
 ![AGJ TUI screenshot](agj.png)
 
 ## What it does
 - Lists active agent sessions in iTerm2
 - Detects Codex/Claude permission prompts
-- Focuses the right pane instantly
+- Goes to the right pane instantly
 - Captures recent output for quick context
 
 ## Use cases
 - You’re juggling multiple agent sessions and miss permission prompts.
 - You want a quick status view of all active Codex/Claude instances.
-- You need a fast way to jump to the pane that’s waiting on you.
+- You need a fast way to go to the pane that’s waiting on you.
 
 ## Keywords
 codex permission prompt, claude permission prompt, monitor multiple codex sessions, track claude windows, iTerm2 agent status, focus iTerm pane by process, AI agent monitor
