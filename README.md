@@ -1,14 +1,22 @@
 # AGJ
 
-AGJ is a tiny CLI to watch coding agents (Codex / Claude) running in iTerm2, tell you when they’re waiting for permission, and jump to the right pane fast.
+AGJ monitors Codex/Claude sessions in iTerm2 so you never miss a permission prompt while multitasking. It shows which agent is waiting for approval and lets you jump to the right pane fast.
 
 ![AGJ TUI screenshot](agj.png)
 
 ## What it does
 - Lists active agent sessions in iTerm2
-- Shows whether an agent is asking for permission
-- Lets you focus a session by ID
-- Lets you capture recent output
+- Detects Codex/Claude permission prompts
+- Focuses the right pane instantly
+- Captures recent output for quick context
+
+## Use cases
+- You’re juggling multiple agent sessions and miss permission prompts.
+- You want a quick status view of all active Codex/Claude instances.
+- You need a fast way to jump to the pane that’s waiting on you.
+
+## Keywords
+codex permission prompt, claude permission prompt, monitor multiple codex sessions, track claude windows, iTerm2 agent status, focus iTerm pane by process, AI agent monitor
 
 ## Install
 
@@ -29,6 +37,11 @@ List active agents:
 agj list
 ```
 
+Only show agents asking for permission:
+```
+agj list --permission-only
+```
+
 Open the TUI:
 ```
 agj tui
@@ -37,11 +50,6 @@ agj tui
 Jump to one:
 ```
 agj focus --id 1
-```
-
-Only show agents asking for permission:
-```
-agj list --permission-only
 ```
 
 Capture recent output:
