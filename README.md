@@ -3,6 +3,7 @@
 AGJ monitors Codex/Claude sessions in iTerm2 so you never miss a permission prompt while multitasking. It shows which agent is waiting for approval, sends actionable macOS notifications, and lets you go to the right pane fast.
 
 ![AGJ TUI screenshot](agj.png)
+![AGJ notification screenshot](notification.png)
 
 ## What it does
 - Lists active agent sessions in iTerm2
