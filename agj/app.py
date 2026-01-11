@@ -9,6 +9,12 @@ from dataclasses import dataclass, field
 
 from agj.iterm import Iterm2Backend, ItermBackend
 from agj.models import InstanceInfo
+from agj.notifications import (
+    NotificationSender,
+    build_payload,
+    default_sender,
+    permission_transition_events,
+)
 from agj.output_utils import has_visible_text, normalize_output, split_and_trim
 from agj.service import ListOptions, list_instances
 from agj.tui import MonitorTui, TuiState
@@ -26,12 +32,16 @@ class MonitorController:
     state: TuiState
     backend: ItermBackend
     patterns: list[str] | None
+    notify_enabled: bool = True
+    notifier: NotificationSender | None = None
     output_cache: dict[str, OutputCacheEntry] = field(default_factory=dict, init=False)
     last_selected_session_id: str | None = field(default=None, init=False)
     last_fetch_started: float = field(default=0.0, init=False)
     last_selection_at: float = field(default=0.0, init=False)
     fetch_inflight: bool = field(default=False, init=False)
     last_list_refresh_at: float = field(default=0.0, init=False)
+    permission_state: dict[str, bool] = field(default_factory=dict, init=False)
+    notifications_initialized: bool = field(default=False, init=False)
     cache_ttl: float = field(default=6.0, init=False)
     refresh_after: float = field(default=2.0, init=False)
     min_fetch_interval: float = field(default=0.6, init=False)
@@ -73,6 +83,7 @@ class MonitorController:
                     updated_at=now,
                 )
             self.last_list_refresh_at = now
+            self._maybe_notify(instances)
             self.state.status = f"Found {len(instances)} instance(s)."
         except Exception as exc:
             self.state.status = f"Refresh failed: {exc}"
@@ -186,6 +197,34 @@ class MonitorController:
         self.state.hide_unmapped = not self.state.hide_unmapped
         await self.refresh()
 
+    def _maybe_notify(self, instances: list[InstanceInfo]) -> None:
+        if not self.notify_enabled:
+            self.permission_state = {
+                inst.session.session_id: inst.permission_prompt is True
+                for inst in instances
+                if inst.session is not None
+            }
+            return
+        updated, events = permission_transition_events(instances, self.permission_state)
+        self.permission_state = updated
+        if not self.notifications_initialized:
+            self.notifications_initialized = True
+            return
+        if not events:
+            return
+        notifier = self.notifier or default_sender()
+        for idx, inst in events:
+            if inst.session is None:
+                continue
+            payload = build_payload(inst, idx)
+            def _action(session=inst.session) -> None:
+                try:
+                    self.backend.activate(session)
+                except Exception:
+                    return
+
+            notifier.send(payload, _action)
+
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Monitor Codex/Claude iTerm2 sessions")
@@ -195,21 +234,34 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         dest="patterns",
         help="Regex pattern to match process name/cmdline (repeatable)",
     )
+    parser.add_argument(
+        "--notify",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Send macOS notifications for new permission prompts (default: on)",
+    )
     return parser.parse_args(argv)
 
 
-def main(patterns: list[str] | None = None) -> None:
+def main(patterns: list[str] | None = None, notify: bool | None = None) -> None:
     argv = sys.argv[1:]
     if argv[:1] == ["tui"]:
         argv = argv[1:]
     args = parse_args(argv)
     use_patterns = patterns if patterns is not None else args.patterns
+    use_notify = notify if notify is not None else args.notify
     if not sys.stdin.isatty():
         print("TUI requires an interactive terminal.")
         return
     backend = Iterm2Backend()
     state = TuiState(instances=[], selected_index=0, status="Loading...")
-    controller = MonitorController(state=state, backend=backend, patterns=use_patterns)
+    controller = MonitorController(
+        state=state,
+        backend=backend,
+        patterns=use_patterns,
+        notify_enabled=use_notify,
+        notifier=default_sender() if use_notify else None,
+    )
 
     async def _run() -> None:
         await controller.refresh()

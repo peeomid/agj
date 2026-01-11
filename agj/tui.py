@@ -130,14 +130,18 @@ class MonitorTui:
             session_name = (
                 instance.session.title if instance.session and instance.session.title else ""
             )
+            dir_name = ""
+            if instance.session and instance.session.path:
+                dir_name = instance.session.path.rstrip("/").split("/")[-1]
             perm = _permission_value(instance.permission_prompt)
             perm_style = _permission_style(instance.permission_prompt)
             id_col = _pad(_truncate(f"ID {idx + 1}", widths["id"]), widths["id"])
             pid_col = _pad(_truncate(str(instance.process.pid), widths["pid"]), widths["pid"])
             proc_col = _pad(_truncate(proc, widths["proc"]), widths["proc"])
             session_col = _pad(_truncate(session_name, widths["session"]), widths["session"])
+            dir_col = _pad(_truncate(dir_name, widths["dir"]), widths["dir"])
             perm_col = _pad(_truncate(perm, widths["perm"]), widths["perm"])
-            row = f"{prefix}{id_col} {pid_col} {proc_col} {session_col} "
+            row = f"{prefix}{id_col} {pid_col} {proc_col} {session_col} {dir_col} "
             lines.append((style, row))
             lines.append((perm_style, perm_col))
             lines.append(("", "\n"))
@@ -251,6 +255,7 @@ class MonitorTui:
 
     async def run(self) -> None:
         self.app.create_background_task(self._auto_update_output())
+        self.app.create_background_task(self._auto_refresh_list())
         await self.app.run_async()
 
     async def _auto_update_output(self) -> None:
@@ -258,6 +263,12 @@ class MonitorTui:
             await self.on_update_output()
             self.app.invalidate()
             await asyncio.sleep(3)
+
+    async def _auto_refresh_list(self) -> None:
+        while True:
+            await self.on_refresh()
+            self.app.invalidate()
+            await asyncio.sleep(5)
 
     def _mark_loading(self) -> None:
         self.state.output_loading = True
@@ -300,14 +311,16 @@ def _list_widths(total: int) -> dict[str, int]:
     pid_w = 7
     perm_w = 7
     # Reserve spaces: prefix(2) + 4 spaces between columns
-    remaining = total - (2 + id_w + pid_w + perm_w + 4)
-    proc_w = max(18, int(remaining * 0.4))
-    session_w = max(18, remaining - proc_w)
+    remaining = total - (2 + id_w + pid_w + perm_w + 5)
+    proc_w = max(14, int(remaining * 0.28))
+    session_w = max(18, int(remaining * 0.36))
+    dir_w = max(12, remaining - proc_w - session_w)
     return {
         "id": id_w,
         "pid": pid_w,
         "proc": proc_w,
         "session": session_w,
+        "dir": dir_w,
         "perm": perm_w,
     }
 
@@ -317,8 +330,9 @@ def _format_list_header(widths: dict[str, int]) -> str:
     pid_col = _pad("PID", widths["pid"])
     proc_col = _pad("Process", widths["proc"])
     session_col = _pad("Iterm session name", widths["session"])
+    dir_col = _pad("Dir", widths["dir"])
     perm_col = _pad("Asking", widths["perm"])
-    return f"  {id_col} {pid_col} {proc_col} {session_col} {perm_col}"
+    return f"  {id_col} {pid_col} {proc_col} {session_col} {dir_col} {perm_col}"
 
 
 def _truncate(value: str, max_len: int) -> str:

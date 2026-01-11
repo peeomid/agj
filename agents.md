@@ -17,17 +17,20 @@ AGJ is a CLI to monitor running AI agent processes (Codex/Claude), map them to i
 - `list --permission-debug` — explain why a permission prompt was detected
 - `list --json` — JSON output for scripting
 - `list --stable` — tab-separated output with header
+- `tui --notify / --no-notify` — enable/disable macOS notifications (default: on)
 
 ## How It Works
 - Uses `psutil` to find Codex/Claude processes
 - Resolves binary paths via `which` to avoid false positives
 - Maps processes to iTerm2 sessions by PID ancestry
 - Uses iTerm2 Python API to list sessions, activate panes, and read output
+- Sends macOS notifications (via `alerter`) when an agent starts asking for permission
 
 ## Requirements
 - macOS with iTerm2 running
 - iTerm2 Python API enabled (iTerm2 Preferences > General > Magic > Enable Python API)
 - Python 3.11+ (managed via `uv`)
+- `alerter` installed for actionable notifications (`https://github.com/vjeantet/alerter`)
 
 ## Development
 - Install deps: `uv sync`
@@ -39,3 +42,4 @@ AGJ is a CLI to monitor running AI agent processes (Codex/Claude), map them to i
 - If `focus` fails: verify the session exists and iTerm2 is running.
 - If CLI can’t connect: re-enable Python API and ensure permissions.
 - If TUI output is slow to update: it uses cached output and refreshes in the background; use `r` to refresh the list.
+- If notifications don’t appear: install `alerter` and ensure notifications are enabled for your terminal.

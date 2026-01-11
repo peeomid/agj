@@ -357,6 +357,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         dest="patterns",
         help="Regex pattern to match process name/cmdline (repeatable)",
     )
+    tui_parser.add_argument(
+        "--notify",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Send macOS notifications for new permission prompts (default: on)",
+    )
 
     return parser.parse_args(argv)
 
@@ -520,6 +526,6 @@ def main(argv: list[str] | None = None) -> int:
             return EXIT_NO_MATCHES
         return cmd_capture(args, backend)
     if args.command == "tui":
-        tui_main(patterns=getattr(args, "patterns", None))
+        tui_main(patterns=getattr(args, "patterns", None), notify=args.notify)
         return 0
     return 0
