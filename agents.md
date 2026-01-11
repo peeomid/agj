@@ -38,3 +38,4 @@ AGJ is a CLI to monitor running AI agent processes (Codex/Claude), map them to i
 - If `list` shows no path: enable iTerm2 shell integration or ensure the session supports `path` variable.
 - If `focus` fails: verify the session exists and iTerm2 is running.
 - If CLI can’t connect: re-enable Python API and ensure permissions.
+- If TUI output is slow to update: it uses cached output and refreshes in the background; use `r` to refresh the list.

@@ -173,8 +173,10 @@ class MonitorTui:
 
     def _render_output(self):
         header = f"Output (last 20 lines) • {self.state.last_output_at}"
+        if self.state.output_loading and self.state.output_lines:
+            header += " (refreshing...)"
         lines = [("class:label", header), ("", "\n")]
-        if self.state.output_loading:
+        if self.state.output_loading and not self.state.output_lines:
             lines.append(("class:dim", "Loading output..."))
             return lines
         if not self.state.output_lines:
@@ -207,6 +209,7 @@ class MonitorTui:
                 self.state.selected_index + 1, len(self.state.instances) - 1
             )
             self._mark_loading()
+            event.app.create_background_task(self._run_and_refresh(self.on_update_output))
             event.app.invalidate()
 
         @kb.add("k")
@@ -216,6 +219,7 @@ class MonitorTui:
                 return
             self.state.selected_index = max(self.state.selected_index - 1, 0)
             self._mark_loading()
+            event.app.create_background_task(self._run_and_refresh(self.on_update_output))
             event.app.invalidate()
 
         @kb.add("o")

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from threading import Lock
 from typing import Protocol
 
 from agj.models import SessionInfo
@@ -20,6 +21,23 @@ class ItermBackend(Protocol):
 
 @dataclass
 class Iterm2Backend:
+    _connection: object | None = field(default=None, init=False, repr=False)
+    _lock: Lock = field(default_factory=Lock, init=False, repr=False)
+
+    def _run(self, work):
+        try:
+            import iterm2
+        except Exception as exc:  # pragma: no cover - import guard
+            raise RuntimeError("iterm2 Python package is not available") from exc
+        with self._lock:
+            if self._connection is None:
+                self._connection = iterm2.Connection()
+            try:
+                return self._connection.run_until_complete(work, retry=False)
+            except Exception:
+                self._connection = None
+                raise
+
     def list_sessions(self, include_path: bool = False) -> list[SessionInfo]:
         try:
             import iterm2
@@ -48,7 +66,7 @@ class Iterm2Backend:
                         )
             return sessions
 
-        return iterm2.Connection().run_until_complete(_work, retry=False)
+        return self._run(_work)
 
     def activate(self, session: SessionInfo) -> None:
         try:
@@ -66,7 +84,7 @@ class Iterm2Backend:
             await target_session.async_activate()
             await asyncio.sleep(0)
 
-        iterm2.Connection().run_until_complete(_work, retry=False)
+        self._run(_work)
 
     def capture_output(self, session_id: str, lines: int | None = None) -> str:
         try:
@@ -100,4 +118,4 @@ class Iterm2Backend:
                     output += "\n"
             return output
 
-        return iterm2.Connection().run_until_complete(_work, retry=False)
+        return self._run(_work)
