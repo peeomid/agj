@@ -14,7 +14,8 @@ after the prompt disappears and returns.
 - **Title:** `AGJ - Agent needs approval`
 - **Subtitle:** `{Agent} #1 - {Iterm session name} - {Working dir base name or repo name}`
 - **Body:** A few lines from the prompt output (trimmed)
-- **Action button:** `Go to session` (focuses the iTerm pane)
+- Clicking the notification focuses the iTerm pane.
+- Optional sound (`--notify-sound`) plays when the notification fires.
 
 ## Content rules
 - Agent is `Codex` or `Claude` (fallback: `Agent`).
@@ -25,13 +26,13 @@ after the prompt disappears and returns.
 ## Implementation plan (updated)
 - Drop `macos-notifications` because Notification Center delegates are not
   available in a pure CLI/TUI process (causes runtime errors and no display).
-- Use `alerter` as the action-button backend. It works from the CLI and returns
-  which action was clicked.
+- Use `alerter` as the notification backend. It works from the CLI and returns
+  activation events from Notification Center.
 - Trigger notification only on transition to `permission_prompt = yes`.
-- Use `alerter -actions "Go to session" -json` and call the focus action when
-  the action is clicked.
+- Use `alerter -json` and call the focus action when the notification is clicked.
+- Pass `-sound` when a notification sound is configured.
 
 ## Requirements / behavior
-- Requires `alerter` on PATH for action buttons.
+- Requires `alerter` on PATH for notifications.
 - The TUI process must remain running to receive action callbacks.
 - Notifications are triggered from the TUI refresh loop.

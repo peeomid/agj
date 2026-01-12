@@ -363,6 +363,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         default=True,
         help="Send macOS notifications for new permission prompts (default: on)",
     )
+    tui_parser.add_argument(
+        "--notify-sound",
+        help='Play a sound on notifications (examples: "Glass", "Ping", "default", "none")',
+    )
 
     return parser.parse_args(argv)
 
@@ -526,6 +530,10 @@ def main(argv: list[str] | None = None) -> int:
             return EXIT_NO_MATCHES
         return cmd_capture(args, backend)
     if args.command == "tui":
-        tui_main(patterns=getattr(args, "patterns", None), notify=args.notify)
+        tui_main(
+            patterns=getattr(args, "patterns", None),
+            notify=args.notify,
+            notify_sound=args.notify_sound,
+        )
         return 0
     return 0

@@ -1,6 +1,6 @@
 # AGJ
 
-AGJ monitors Codex/Claude sessions in iTerm2 so you never miss a permission prompt while multitasking. It shows which agent is waiting for approval, sends actionable macOS notifications, and lets you go to the right pane fast.
+AGJ monitors Codex/Claude sessions in iTerm2 so you never miss a permission prompt while multitasking. It shows which agent is waiting for approval, sends macOS notifications, and lets you go to the right pane fast.
 
 ![AGJ TUI screenshot](agj.png)
 ![AGJ notification screenshot](notification.png)
@@ -10,7 +10,11 @@ AGJ monitors Codex/Claude sessions in iTerm2 so you never miss a permission prom
 - Detects Codex/Claude permission prompts
 - Goes to the right pane instantly
 - Captures recent output for quick context
-- Sends actionable notifications and lets you jump straight to the session that needs approval
+- Sends notifications and lets you jump straight to the session that needs approval
+
+## iTerm session names
+AGJ uses the iTerm2 session name (tab title) in the TUI and notifications. You can customize this in iTerm2 to make the display more meaningful:
+https://iterm2.com/documentation-session-title.html
 
 ## Use cases
 - You’re juggling multiple agent sessions and miss permission prompts.
@@ -55,6 +59,12 @@ Disable notifications if needed:
 agj tui --no-notify
 ```
 
+Enable a notification sound:
+```
+agj tui --notify-sound Glass
+```
+Use `default` for the system default sound or `none` to disable sound.
+
 Jump to one:
 ```
 agj focus --id 1
@@ -69,7 +79,7 @@ agj capture --id 1 --lines 50
 - macOS
 - iTerm2 running with Python API enabled
 - Python 3.11+
-- `alerter` installed for actionable notifications (install from GitHub releases):
+- `alerter` installed for notifications (install from GitHub releases):
   `https://github.com/vjeantet/alerter`
 
 ## Development

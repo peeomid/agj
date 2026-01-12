@@ -20,6 +20,23 @@ from agj.service import ListOptions, list_instances
 from agj.tui import MonitorTui, TuiState
 
 
+def _tui_sort_key(instance: InstanceInfo) -> tuple:
+    session_name = ""
+    dir_name = ""
+    if instance.session is not None:
+        session_name = (instance.session.title or "").strip()
+        path = instance.session.path or ""
+        if path:
+            dir_name = path.rstrip("/").split("/")[-1]
+    return (
+        session_name == "",
+        session_name.lower(),
+        dir_name == "",
+        dir_name.lower(),
+        instance.process.pid,
+    )
+
+
 @dataclass
 class OutputCacheEntry:
     lines: list[str]
@@ -33,6 +50,7 @@ class MonitorController:
     backend: ItermBackend
     patterns: list[str] | None
     notify_enabled: bool = True
+    notify_sound: str | None = None
     notifier: NotificationSender | None = None
     output_cache: dict[str, OutputCacheEntry] = field(default_factory=dict, init=False)
     last_selected_session_id: str | None = field(default=None, init=False)
@@ -57,7 +75,7 @@ class MonitorController:
                 limit=None,
             )
             instances = await asyncio.to_thread(list_instances, self.backend, options)
-            self.state.instances = instances
+            self.state.instances = sorted(instances, key=_tui_sort_key)
             if self.state.selected_index >= len(instances):
                 self.state.selected_index = max(len(instances) - 1, 0)
             session_ids = {
@@ -216,7 +234,7 @@ class MonitorController:
         for idx, inst in events:
             if inst.session is None:
                 continue
-            payload = build_payload(inst, idx)
+            payload = build_payload(inst, idx, sound=self.notify_sound)
             def _action(session=inst.session) -> None:
                 try:
                     self.backend.activate(session)
@@ -240,16 +258,40 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=True,
         help="Send macOS notifications for new permission prompts (default: on)",
     )
+    parser.add_argument(
+        "--notify-sound",
+        help='Play a sound on notifications (examples: "Glass", "Ping", "default", "none")',
+    )
     return parser.parse_args(argv)
 
 
-def main(patterns: list[str] | None = None, notify: bool | None = None) -> None:
+def _normalize_notify_sound(value: str | None) -> str | None:
+    if not value:
+        return None
+    normalized = value.strip()
+    if not normalized:
+        return None
+    if normalized.lower() in {"none", "off", "false"}:
+        return None
+    return normalized
+
+
+def main(
+    patterns: list[str] | None = None,
+    notify: bool | None = None,
+    notify_sound: str | None = None,
+) -> None:
     argv = sys.argv[1:]
     if argv[:1] == ["tui"]:
         argv = argv[1:]
     args = parse_args(argv)
     use_patterns = patterns if patterns is not None else args.patterns
     use_notify = notify if notify is not None else args.notify
+    use_notify_sound = (
+        _normalize_notify_sound(notify_sound)
+        if notify_sound is not None
+        else _normalize_notify_sound(args.notify_sound)
+    )
     if not sys.stdin.isatty():
         print("TUI requires an interactive terminal.")
         return
@@ -260,6 +302,7 @@ def main(patterns: list[str] | None = None, notify: bool | None = None) -> None:
         backend=backend,
         patterns=use_patterns,
         notify_enabled=use_notify,
+        notify_sound=use_notify_sound,
         notifier=default_sender() if use_notify else None,
     )
 

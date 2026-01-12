@@ -18,7 +18,7 @@ class NotificationPayload:
     title: str
     subtitle: str
     body: str
-    action_label: str = "Go to session"
+    sound: str | None = None
 
 
 class NotificationSender:
@@ -59,12 +59,12 @@ class AlerterSender(NotificationSender):
             payload.subtitle,
             "-message",
             payload.body or "",
-            "-actions",
-            payload.action_label,
             "-closeLabel",
             "Dismiss",
             "-json",
         ]
+        if payload.sound:
+            args.extend(["-sound", payload.sound])
 
         def _run() -> None:
             try:
@@ -79,7 +79,7 @@ class AlerterSender(NotificationSender):
             stdout = (result.stdout or "").strip()
             if not stdout:
                 return
-            if _did_click_action(stdout, payload.action_label):
+            if _did_activate_notification(stdout):
                 on_action()
 
         Thread(target=_run, daemon=True).start()
@@ -145,7 +145,11 @@ def _path_basename(instance: InstanceInfo) -> str:
     return str(path)
 
 
-def build_payload(instance: InstanceInfo, index: int) -> NotificationPayload:
+def build_payload(
+    instance: InstanceInfo,
+    index: int,
+    sound: str | None = None,
+) -> NotificationPayload:
     agent = _agent_name(instance)
     title = f"ADJ: {agent} needs approval"
     session_name = ""
@@ -159,7 +163,12 @@ def build_payload(instance: InstanceInfo, index: int) -> NotificationPayload:
         subtitle_parts.append(session_name)
     subtitle = ": ".join(subtitle_parts[:1]) + (" " + " - ".join(subtitle_parts[1:]) if len(subtitle_parts) > 1 else "")
     body = prompt_summary(instance.permission_output or "")
-    return NotificationPayload(title=title, subtitle=subtitle, body=body)
+    return NotificationPayload(
+        title=title,
+        subtitle=subtitle,
+        body=body,
+        sound=sound,
+    )
 
 
 def default_sender() -> NotificationSender:
@@ -172,16 +181,21 @@ def _alerter_path() -> str | None:
     return shutil.which("alerter")
 
 
-def _did_click_action(stdout: str, action_label: str) -> bool:
+def _did_activate_notification(stdout: str) -> bool:
     try:
         payload = json.loads(stdout)
     except Exception:
-        return action_label in stdout
-    activation_type = str(payload.get("activationType", ""))
-    activation_value = str(payload.get("activationValue", ""))
-    if activation_value == action_label:
+        return "activated" in stdout.lower() or "clicked" in stdout.lower()
+    activation_type = str(payload.get("activationType", "")).lower()
+    if activation_type.isdigit():
+        return activation_type in ("1", "2")
+    if not activation_type:
+        return False
+    if "close" in activation_type or "dismiss" in activation_type:
+        return False
+    if "activated" in activation_type or "clicked" in activation_type:
         return True
-    return activation_type.lower().endswith("actionclicked")
+    return False
 
 
 def permission_transition_events(
