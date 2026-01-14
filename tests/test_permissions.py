@@ -24,6 +24,9 @@ def test_detect_permission_prompt_claude():
     output = "No, and tell Claude what to do differently (esc)"
     assert detect_permission_prompt(output, "claude") is False
 
+    output = "Do you want to proceed?"
+    assert detect_permission_prompt(output, "claude") is True
+
     output = "Do you want to proceed?\n❯ 1. Yes\nEsc to cancel"
     assert detect_permission_prompt(output, "claude") is True
     found, reason = detect_permission_prompt_with_reason(output, "claude")

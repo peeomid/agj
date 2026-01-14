@@ -18,10 +18,16 @@ def _default_patterns() -> PermissionPatterns:
     return PermissionPatterns(
         codex=(
             re.compile(r"Would you like to run the following command\?", re.IGNORECASE),
+            re.compile(r"Would you like to .+\?", re.IGNORECASE),
+            re.compile(r"Would you like (me )?to .+\?", re.IGNORECASE),
+            re.compile(r"Do you want to .+\?", re.IGNORECASE),
             re.compile(r"Yes, and don't ask again for this command", re.IGNORECASE),
         ),
         claude=(
             re.compile(r"Do you want to proceed\?", re.IGNORECASE),
+            re.compile(r"Do you want to .+\?", re.IGNORECASE),
+            re.compile(r"Would you like to .+\?", re.IGNORECASE),
+            re.compile(r"Would you like (me )?to .+\?", re.IGNORECASE),
             re.compile(r"Do you want to make this edit to", re.IGNORECASE),
             re.compile(r"No, and tell Claude what to do differently", re.IGNORECASE),
         ),
@@ -144,6 +150,8 @@ def _has_claude_confirm(text: str) -> bool:
     for line in text.splitlines():
         if '"' in line or ":" in line:
             continue
+        if re.search(r"^\s*Do you want to .+\?\s*$", line, re.IGNORECASE):
+            return True
         if re.search(r"^\s*[❯>]\s*1\.", line):
             return True
         if re.search(r"^\s*1\.\s*Yes", line, re.IGNORECASE):

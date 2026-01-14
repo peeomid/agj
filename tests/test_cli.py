@@ -48,7 +48,9 @@ def test_format_table_stable():
         include_permission=True,
     )
     lines = output.splitlines()
-    assert lines[0].startswith("id\tpid\tname\tIterm session name\tpermission\tcmd\tsession")
+    assert lines[0].startswith(
+        "id\tpid\tname\tIterm tab title\tIterm tab id\tpermission\tcmd\tsession"
+    )
     assert "\t" in lines[1]
 
 
@@ -86,8 +88,8 @@ def test_format_table_with_session_name():
         include_permission=False,
     )
     lines = output.splitlines()
-    assert lines[0] == "id\tpid\tname\tIterm session name\tcmd"
-    assert lines[1].endswith("\tMy Session\tcodex")
+    assert lines[0] == "id\tpid\tname\tIterm tab title\tIterm tab id\tcmd"
+    assert lines[1].endswith("\tMy Session\tt1\tcodex")
 
 
 def test_format_detailed_includes_lines():
@@ -106,13 +108,15 @@ def test_format_detailed_includes_lines():
         color=False,
     )
     assert "[ID 1] PID 11  codex" in output
-    assert "Iterm session name: My Session" in output
+    assert "Iterm tab title: My Session" in output
+    assert "Iterm tab id: t1" in output
     assert "Permission prompt:" in output
     assert "Permission reason:" in output
     assert "Permission output (last 20 lines):" in output
     assert "Session: w:" in output
     assert "Path: /tmp" in output
     assert "Cmd: codex" in output
+
 
 
 def test_format_table_without_session_column():

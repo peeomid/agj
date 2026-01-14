@@ -12,8 +12,8 @@ AGJ monitors Codex/Claude sessions in iTerm2 so you never miss a permission prom
 - Captures recent output for quick context
 - Sends notifications and lets you jump straight to the session that needs approval
 
-## iTerm session names
-AGJ uses the iTerm2 session name (tab title) in the TUI and notifications. You can customize this in iTerm2 to make the display more meaningful:
+## iTerm tab titles
+AGJ uses the iTerm2 tab title in the TUI and notifications. You can customize this in iTerm2 to make the display more meaningful:
 https://iterm2.com/documentation-session-title.html
 
 ## Use cases

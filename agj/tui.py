@@ -130,6 +130,7 @@ class MonitorTui:
             session_name = (
                 instance.session.title if instance.session and instance.session.title else ""
             )
+            tab_id = instance.session.tab_id if instance.session and instance.session.tab_id else ""
             dir_name = ""
             if instance.session and instance.session.path:
                 dir_name = instance.session.path.rstrip("/").split("/")[-1]
@@ -139,9 +140,10 @@ class MonitorTui:
             pid_col = _pad(_truncate(str(instance.process.pid), widths["pid"]), widths["pid"])
             proc_col = _pad(_truncate(proc, widths["proc"]), widths["proc"])
             session_col = _pad(_truncate(session_name, widths["session"]), widths["session"])
+            tab_col = _pad(_truncate(tab_id, widths["tab"]), widths["tab"])
             dir_col = _pad(_truncate(dir_name, widths["dir"]), widths["dir"])
             perm_col = _pad(_truncate(perm, widths["perm"]), widths["perm"])
-            row = f"{prefix}{id_col} {pid_col} {proc_col} {session_col} {dir_col} "
+            row = f"{prefix}{id_col} {pid_col} {proc_col} {session_col} {tab_col} {dir_col} "
             lines.append((style, row))
             lines.append((perm_style, perm_col))
             lines.append(("", "\n"))
@@ -158,12 +160,16 @@ class MonitorTui:
         session_name = (
             instance.session.title if instance.session and instance.session.title else ""
         )
+        tab_id = instance.session.tab_id if instance.session and instance.session.tab_id else ""
         path = instance.session.path if instance.session and instance.session.path else ""
         perm = _permission_value(instance.permission_prompt)
         perm_style = _permission_style(instance.permission_prompt)
         return [
-            ("class:label", "Iterm session name: "),
+            ("class:label", "Iterm tab title: "),
             ("", session_name),
+            ("", "\n"),
+            ("class:label", "Iterm tab id: "),
+            ("", tab_id),
             ("", "\n"),
             ("class:label", "Permission prompt: "),
             (perm_style, perm),
@@ -306,13 +312,14 @@ def _permission_style(value: bool | None) -> str:
 
 
 def _list_widths(total: int) -> dict[str, int]:
-    total = max(total, 60)
+    total = max(total, 70)
     id_w = 7
     pid_w = 7
     perm_w = 7
-    # Reserve spaces: prefix(2) + 4 spaces between columns
-    remaining = total - (2 + id_w + pid_w + perm_w + 5)
-    proc_w = max(14, int(remaining * 0.28))
+    tab_w = 8
+    # Reserve spaces: prefix(2) + 5 spaces between columns
+    remaining = total - (2 + id_w + pid_w + tab_w + perm_w + 6)
+    proc_w = max(14, int(remaining * 0.24))
     session_w = max(18, int(remaining * 0.36))
     dir_w = max(12, remaining - proc_w - session_w)
     return {
@@ -320,6 +327,7 @@ def _list_widths(total: int) -> dict[str, int]:
         "pid": pid_w,
         "proc": proc_w,
         "session": session_w,
+        "tab": tab_w,
         "dir": dir_w,
         "perm": perm_w,
     }
@@ -329,10 +337,11 @@ def _format_list_header(widths: dict[str, int]) -> str:
     id_col = _pad("ID", widths["id"])
     pid_col = _pad("PID", widths["pid"])
     proc_col = _pad("Process", widths["proc"])
-    session_col = _pad("Iterm session name", widths["session"])
+    session_col = _pad("Iterm tab title", widths["session"])
+    tab_col = _pad("Tab ID", widths["tab"])
     dir_col = _pad("Dir", widths["dir"])
     perm_col = _pad("Asking", widths["perm"])
-    return f"  {id_col} {pid_col} {proc_col} {session_col} {dir_col} {perm_col}"
+    return f"  {id_col} {pid_col} {proc_col} {session_col} {tab_col} {dir_col} {perm_col}"
 
 
 def _truncate(value: str, max_len: int) -> str:

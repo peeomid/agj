@@ -3,9 +3,15 @@
 
 [codex]
 Would you like to run the following command\?
+Would you like to .+\?
+Would you like (me )?to .+\?
+Do you want to .+\?
 Yes, and don't ask again for this command
 
 [claude]
 Do you want to proceed\?
+Do you want to .+\?
+Would you like to .+\?
+Would you like (me )?to .+\?
 Do you want to make this edit to
 No, and tell Claude what to do differently

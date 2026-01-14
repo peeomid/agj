@@ -48,9 +48,18 @@ class Iterm2Backend:
             sessions: list[SessionInfo] = []
             for window in app.windows:
                 for tab in window.tabs:
+                    tab_title = None
+                    for var in ("title", "titleOverride"):
+                        try:
+                            value = await tab.async_get_variable(var)
+                        except Exception:
+                            value = None
+                        if value:
+                            tab_title = str(value)
+                            break
                     for session in tab.sessions:
                         pid = await session.async_get_variable("pid")
-                        title = session.name
+                        title = tab_title or session.name
                         path = None
                         if include_path:
                             path = await session.async_get_variable("path")

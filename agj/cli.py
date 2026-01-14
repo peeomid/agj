@@ -51,7 +51,8 @@ def format_table(
     rows = []
     header = ["id", "pid", "name"]
     if include_session_name:
-        header.append("Iterm session name")
+        header.append("Iterm tab title")
+        header.append("Iterm tab id")
     if include_permission:
         header.append("permission")
     header.append("cmd")
@@ -70,10 +71,13 @@ def format_table(
             if not stable:
                 path_value = _truncate(path_value, 60)
         session_name = ""
+        tab_id = ""
         if include_session_name:
             session_name = inst.session.title if inst.session and inst.session.title else ""
+            tab_id = inst.session.tab_id if inst.session and inst.session.tab_id else ""
             if not stable:
                 session_name = _truncate(session_name, 40)
+                tab_id = _truncate(tab_id, 12)
         permission_value = ""
         if include_permission:
             if inst.permission_prompt is True:
@@ -87,7 +91,7 @@ def format_table(
                 str(idx),
                 str(inst.process.pid),
                 inst.process.name,
-                *([session_name] if include_session_name else []),
+                *([session_name, tab_id] if include_session_name else []),
                 *([permission_value] if include_permission else []),
                 cmd,
                 *([format_session(inst)] if include_session else []),
@@ -260,7 +264,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "--with-session-name",
         action=argparse.BooleanOptionalAction,
         default=None,
-        help="Include iTerm session name (default: on)",
+        help="Include iTerm tab title/id (default: on)",
     )
     list_parser.add_argument(
         "--permission-only",

@@ -11,7 +11,7 @@ AGJ is a CLI to monitor running AI agent processes (Codex/Claude), map them to i
 
 ## Common Flags
 - `list --with-session` — include iTerm window/tab/session identifiers
-- `list --with-session-name / --no-with-session-name` — show/hide iTerm session name
+- `list --with-session-name / --no-with-session-name` — show/hide iTerm tab title/id
 - `list --with-path / --no-with-path` — show/hide working directory (default: on)
 - `list --permission-only` — show only instances asking for permission
 - `list --permission-debug` — explain why a permission prompt was detected

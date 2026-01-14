@@ -1,5 +1,8 @@
+import json
+
 from agj.models import InstanceInfo, ProcessInfo, SessionInfo
 from agj.notifications import (
+    _did_click_action,
     build_payload,
     permission_transition_events,
     prompt_snippet,
@@ -80,7 +83,7 @@ def test_build_payload_fields():
     inst = _instance(permission_output="line1\nline2\nline3\n")
     payload = build_payload(inst, 2)
     assert payload.title == "ADJ: Codex needs approval"
-    assert payload.subtitle.startswith("#2 project - Session")
+    assert payload.subtitle == "#2 project - Session"
     assert payload.body == "line3"
 
 
@@ -92,3 +95,23 @@ def test_permission_transition_events():
     assert updated["s1"] is True
     assert updated["s2"] is False
     assert events == [(1, inst1)]
+
+
+def test_did_click_action_handles_action_label():
+    payload = {"activationType": "actionClicked", "activationValue": "Go to session"}
+    assert _did_click_action(json.dumps(payload), "Go to session") is True
+
+
+def test_did_click_action_handles_contents_click():
+    payload = {"activationType": "contentsClicked"}
+    assert _did_click_action(json.dumps(payload), "Go to session") is True
+
+
+def test_did_click_action_handles_numeric_activation_type():
+    payload = {"activationType": 1}
+    assert _did_click_action(json.dumps(payload), "Go to session") is True
+
+
+def test_did_click_action_ignores_closed():
+    payload = {"activationType": "closed"}
+    assert _did_click_action(json.dumps(payload), "Go to session") is False

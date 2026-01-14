@@ -34,8 +34,11 @@ def format_detailed(
         lines.append(header)
         if include_session_name:
             session_name = inst.session.title if inst.session and inst.session.title else ""
-            label = paint("    Iterm session name:", Ansi.blue, color)
+            label = paint("    Iterm tab title:", Ansi.blue, color)
             lines.append(f"{label} {session_name}")
+            tab_id = inst.session.tab_id if inst.session and inst.session.tab_id else ""
+            label = paint("    Iterm tab id:", Ansi.blue, color)
+            lines.append(f"{label} {tab_id}")
         permission_value = _permission_value(inst.permission_prompt)
         perm_label = paint("    Permission prompt:", Ansi.blue, color)
         perm_value = _color_permission(permission_value, color)

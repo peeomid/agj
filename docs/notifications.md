@@ -12,7 +12,7 @@ after the prompt disappears and returns.
 
 ## Notification content
 - **Title:** `AGJ - Agent needs approval`
-- **Subtitle:** `{Agent} #1 - {Iterm session name} - {Working dir base name or repo name}`
+- **Subtitle:** `{Agent} #1 - {Iterm tab title} - {Working dir base name or repo name}`
 - **Body:** A few lines from the prompt output (trimmed)
 - Clicking the notification focuses the iTerm pane.
 - Optional sound (`--notify-sound`) plays when the notification fires.
