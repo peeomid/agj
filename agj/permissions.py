@@ -89,7 +89,7 @@ def detect_permission_prompt_with_reason(
 ) -> tuple[bool, str | None]:
     if not output or agent_kind is None:
         return False, None
-    recent = _recent_text(output, 200)
+    recent = _recent_text(output, 60)
     if agent_kind == "codex":
         for regex in patterns.codex:
             match = regex.search(recent)

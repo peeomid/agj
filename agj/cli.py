@@ -40,6 +40,19 @@ def _truncate(value: str, max_len: int) -> str:
     return value[: max_len - 3] + "..."
 
 
+def _parse_idle_checks(value: str | None) -> tuple[float, ...]:
+    if not value:
+        return ()
+    parts = [p.strip() for p in value.split(",") if p.strip()]
+    delays: list[float] = []
+    for part in parts:
+        try:
+            delays.append(float(part))
+        except ValueError:
+            continue
+    return tuple(delays)
+
+
 def format_table(
     instances: list[InstanceInfo],
     stable: bool,
@@ -80,7 +93,7 @@ def format_table(
                 tab_id = _truncate(tab_id, 12)
         state_value = ""
         if include_state:
-            state_value = inst.state or "unknown"
+            state_value = inst.state or "idle"
         rows.append(
             [
                 str(idx),
@@ -277,6 +290,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Show why a state was detected (permission/error)",
     )
     list_parser.add_argument(
+        "--idle-checks",
+        default="0.3,0.8",
+        help="Comma-separated delays (seconds) to re-check output before marking idle (default: 0.3,0.8)",
+    )
+    list_parser.add_argument(
         "--view",
         choices=["detail", "table"],
         default="detail",
@@ -366,6 +384,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "--notify-sound",
         help='Play a sound on notifications (examples: "Glass", "Ping", "default", "none")',
     )
+    tui_parser.add_argument(
+        "--idle-checks",
+        default="0.3,0.8",
+        help="Comma-separated delays (seconds) to re-check output before marking idle (default: 0.3,0.8)",
+    )
 
     return parser.parse_args(argv)
 
@@ -380,6 +403,7 @@ def cmd_list(args: argparse.Namespace, backend: ItermBackend) -> int:
         permission_only=args.permission_only,
         no_unmapped=args.no_unmapped,
         limit=args.max,
+        idle_checks=_parse_idle_checks(args.idle_checks),
     )
     instances = list_instances(backend, options)
     if not instances:
@@ -533,6 +557,7 @@ def main(argv: list[str] | None = None) -> int:
             patterns=getattr(args, "patterns", None),
             notify=args.notify,
             notify_sound=args.notify_sound,
+            idle_checks=args.idle_checks,
         )
         return 0
     return 0

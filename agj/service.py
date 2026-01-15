@@ -3,13 +3,15 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from pathlib import Path
 import shutil
+import time
+from concurrent.futures import ThreadPoolExecutor
 
 from agj.iterm import ItermBackend
 from agj.mapping import map_instances
 from agj.models import InstanceInfo
 from agj.output_utils import has_visible_text, normalize_output
-from agj.permissions import classify_agent
-from agj.state import detect_state_with_reason
+from agj.permissions import classify_agent, detect_permission_prompt_with_reason
+from agj.state import detect_error_with_reason
 from agj.processes import ProcessFinder, ProcessQuery
 
 
@@ -21,7 +23,8 @@ class ListOptions:
     permission_only: bool = False
     no_unmapped: bool = False
     limit: int | None = None
-    permission_lines: int = 120
+    permission_lines: int = 60
+    idle_checks: tuple[float, ...] = (0.3, 0.8)
 
 
 def build_finder(patterns: list[str] | None) -> ProcessFinder:
@@ -45,7 +48,12 @@ def list_instances(backend: ItermBackend, options: ListOptions) -> list[Instance
     instances.sort(key=lambda inst: inst.process.pid)
 
     if options.permission_check:
-        instances = _with_state_status(instances, backend, options.permission_lines)
+        instances = _with_state_status(
+            instances,
+            backend,
+            options.permission_lines,
+            options.idle_checks,
+        )
 
     if options.no_unmapped:
         instances = [inst for inst in instances if inst.session]
@@ -60,30 +68,75 @@ def _with_state_status(
     instances: list[InstanceInfo],
     backend: ItermBackend,
     permission_lines: int,
+    idle_checks: tuple[float, ...],
 ) -> list[InstanceInfo]:
-    updated: list[InstanceInfo] = []
-    for inst in instances:
-        if inst.session is None:
-            updated.append(replace(inst, state="unknown", state_reason=None, state_output=None))
-            continue
-        output = backend.capture_output(inst.session.session_id, lines=permission_lines)
-        output = normalize_output(output)
-        if not has_visible_text(output):
-            output = normalize_output(
-                backend.capture_output(inst.session.session_id, lines=None)
+    if not instances:
+        return []
+    max_workers = min(8, len(instances))
+    results: list[InstanceInfo] = [None] * len(instances)
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = []
+        for idx, inst in enumerate(instances):
+            futures.append(
+                executor.submit(_compute_state, inst, backend, permission_lines, idle_checks)
             )
-        kind = classify_agent(inst.process)
-        state, reason = detect_state_with_reason(output, kind)
-        last_lines = _last_nonempty_lines(output, 20) if output else ""
-        updated.append(
-            replace(
+        for idx, future in enumerate(futures):
+            results[idx] = future.result()
+    return results
+
+
+def _compute_state(
+    inst: InstanceInfo,
+    backend: ItermBackend,
+    permission_lines: int,
+    idle_checks: tuple[float, ...],
+) -> InstanceInfo:
+    if inst.session is None:
+        return replace(inst, state="idle", state_reason=None, state_output=None)
+    raw_output = backend.capture_output(inst.session.session_id, lines=permission_lines)
+    normalized = normalize_output(raw_output)
+    if not has_visible_text(normalized):
+        raw_output = backend.capture_output(inst.session.session_id, lines=None)
+        normalized = normalize_output(raw_output)
+    kind = classify_agent(inst.process)
+    permission, perm_reason = detect_permission_prompt_with_reason(normalized, kind)
+    if permission:
+        last_lines = _last_nonempty_lines(normalized, 20) if normalized else ""
+        return replace(
+            inst,
+            state="permission",
+            state_reason=perm_reason,
+            state_output=last_lines,
+        )
+    error, err_reason = detect_error_with_reason(normalized)
+    if error:
+        last_lines = _last_nonempty_lines(normalized, 20) if normalized else ""
+        return replace(
+            inst,
+            state="error",
+            state_reason=err_reason,
+            state_output=last_lines,
+        )
+    for delay in idle_checks:
+        if delay > 0:
+            time.sleep(delay)
+        raw_output_2 = backend.capture_output(inst.session.session_id, lines=permission_lines)
+        normalized_2 = normalize_output(raw_output_2)
+        if raw_output_2 != raw_output:
+            last_lines = _last_nonempty_lines(normalized_2, 20) if normalized_2 else ""
+            return replace(
                 inst,
-                state=state,
-                state_reason=reason,
+                state="running",
+                state_reason=None,
                 state_output=last_lines,
             )
-        )
-    return updated
+    last_lines = _last_nonempty_lines(normalized, 20) if normalized else ""
+    return replace(
+        inst,
+        state="idle",
+        state_reason=None,
+        state_output=last_lines,
+    )
 
 
 def _last_nonempty_lines(output: str, count: int) -> str:

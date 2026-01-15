@@ -52,6 +52,7 @@ class MonitorController:
     notify_enabled: bool = True
     notify_sound: str | None = None
     notifier: NotificationSender | None = None
+    idle_checks: tuple[float, ...] = (0.3, 0.8)
     output_cache: dict[str, OutputCacheEntry] = field(default_factory=dict, init=False)
     last_selected_session_id: str | None = field(default=None, init=False)
     last_fetch_started: float = field(default=0.0, init=False)
@@ -66,6 +67,13 @@ class MonitorController:
 
     async def refresh(self) -> None:
         try:
+            selected_session_id = None
+            selected_pid = None
+            if self.state.instances and 0 <= self.state.selected_index < len(self.state.instances):
+                current = self.state.instances[self.state.selected_index]
+                selected_pid = current.process.pid
+                if current.session is not None:
+                    selected_session_id = current.session.session_id
             options = ListOptions(
                 patterns=self.patterns,
                 include_path=True,
@@ -73,11 +81,28 @@ class MonitorController:
                 permission_only=self.state.permission_only,
                 no_unmapped=self.state.hide_unmapped,
                 limit=None,
+                idle_checks=self.idle_checks,
             )
             instances = await asyncio.to_thread(list_instances, self.backend, options)
             self.state.instances = sorted(instances, key=_tui_sort_key)
-            if self.state.selected_index >= len(instances):
-                self.state.selected_index = max(len(instances) - 1, 0)
+            if self.state.instances:
+                selected_index = None
+                if selected_session_id is not None:
+                    for idx, inst in enumerate(self.state.instances):
+                        if inst.session and inst.session.session_id == selected_session_id:
+                            selected_index = idx
+                            break
+                if selected_index is None and selected_pid is not None:
+                    for idx, inst in enumerate(self.state.instances):
+                        if inst.process.pid == selected_pid:
+                            selected_index = idx
+                            break
+                if selected_index is not None:
+                    self.state.selected_index = selected_index
+                elif self.state.selected_index >= len(self.state.instances):
+                    self.state.selected_index = max(len(self.state.instances) - 1, 0)
+            else:
+                self.state.selected_index = 0
             session_ids = {
                 inst.session.session_id
                 for inst in instances
@@ -218,7 +243,7 @@ class MonitorController:
     def _maybe_notify(self, instances: list[InstanceInfo]) -> None:
         if not self.notify_enabled:
             self.state_state = {
-                inst.session.session_id: inst.state or "unknown"
+                inst.session.session_id: inst.state or "idle"
                 for inst in instances
                 if inst.session is not None
             }
@@ -262,6 +287,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--notify-sound",
         help='Play a sound on notifications (examples: "Glass", "Ping", "default", "none")',
     )
+    parser.add_argument(
+        "--idle-checks",
+        default="0.3,0.8",
+        help="Comma-separated delays (seconds) to re-check output before marking idle (default: 0.3,0.8)",
+    )
     return parser.parse_args(argv)
 
 
@@ -276,10 +306,24 @@ def _normalize_notify_sound(value: str | None) -> str | None:
     return normalized
 
 
+def _parse_idle_checks(value: str) -> tuple[float, ...]:
+    if not value:
+        return ()
+    parts = [p.strip() for p in value.split(",") if p.strip()]
+    delays: list[float] = []
+    for part in parts:
+        try:
+            delays.append(float(part))
+        except ValueError:
+            continue
+    return tuple(delays)
+
+
 def main(
     patterns: list[str] | None = None,
     notify: bool | None = None,
     notify_sound: str | None = None,
+    idle_checks: str | None = None,
 ) -> None:
     argv = sys.argv[1:]
     if argv[:1] == ["tui"]:
@@ -291,6 +335,11 @@ def main(
         _normalize_notify_sound(notify_sound)
         if notify_sound is not None
         else _normalize_notify_sound(args.notify_sound)
+    )
+    use_idle_checks = (
+        _parse_idle_checks(idle_checks)
+        if idle_checks is not None
+        else _parse_idle_checks(args.idle_checks)
     )
     if not sys.stdin.isatty():
         print("TUI requires an interactive terminal.")
@@ -304,6 +353,7 @@ def main(
         notify_enabled=use_notify,
         notify_sound=use_notify_sound,
         notifier=default_sender() if use_notify else None,
+        idle_checks=use_idle_checks or (0.3, 0.8),
     )
 
     async def _run() -> None:

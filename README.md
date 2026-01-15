@@ -7,7 +7,8 @@ AGJ monitors Codex/Claude sessions in iTerm2 so you never miss a permission prom
 
 ## What it does
 - Lists active agent sessions in iTerm2
-- Detects Codex/Claude permission prompts
+- Detects Codex/Claude permission prompts and error states
+- Shows agent state: permission, error, running, or idle
 - Goes to the right pane instantly
 - Captures recent output for quick context
 - Sends notifications and lets you jump straight to the session that needs approval
@@ -49,6 +50,11 @@ Only show agents asking for permission:
 agj list --permission-only
 ```
 
+Tune idle detection delays (re-check output before marking idle):
+```
+agj list --idle-checks 0.3,0.8
+```
+
 Open the TUI:
 ```
 agj tui
@@ -64,6 +70,11 @@ Enable a notification sound:
 agj tui --notify-sound Glass
 ```
 Use `default` for the system default sound or `none` to disable sound.
+
+TUI idle detection delays:
+```
+agj tui --idle-checks 0.3,0.8
+```
 
 Jump to one:
 ```

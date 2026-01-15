@@ -52,7 +52,7 @@ def detect_error_with_reason(
 ) -> tuple[bool, str | None]:
     if not output:
         return False, None
-    recent = _recent_text(output, 80)
+    recent = _recent_text(output, 60)
     tail_lines = _last_nonempty_lines(recent, 8)
     for regex in patterns.patterns:
         match = regex.search(tail_lines)

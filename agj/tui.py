@@ -297,7 +297,7 @@ class MonitorTui:
 
 def _state_value(value: str | None) -> str:
     if not value:
-        return "unknown"
+        return "idle"
     return value
 
 

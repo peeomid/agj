@@ -5,7 +5,7 @@ from agj.tui import TuiState, _state_value
 def test_state_value():
     assert _state_value("permission") == "permission"
     assert _state_value("running") == "running"
-    assert _state_value(None) == "unknown"
+    assert _state_value(None) == "idle"
 
 
 def test_tui_state_defaults():
