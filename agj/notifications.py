@@ -151,7 +151,13 @@ def build_payload(
     sound: str | None = None,
 ) -> NotificationPayload:
     agent = _agent_name(instance)
-    title = f"ADJ: {agent} needs approval"
+    state = instance.state or "unknown"
+    if state == "permission":
+        title = f"AGJ: {agent} needs approval"
+    elif state == "error":
+        title = f"AGJ: {agent} error detected"
+    else:
+        title = f"AGJ: {agent} update"
     session_name = ""
     if instance.session and instance.session.title:
         session_name = instance.session.title
@@ -162,7 +168,7 @@ def build_payload(
     if session_name:
         subtitle_parts.append(session_name)
     subtitle = ": ".join(subtitle_parts[:1]) + (" " + " - ".join(subtitle_parts[1:]) if len(subtitle_parts) > 1 else "")
-    body = prompt_summary(instance.permission_output or "")
+    body = prompt_summary(instance.state_output or "")
     return NotificationPayload(
         title=title,
         subtitle=subtitle,
@@ -198,18 +204,20 @@ def _did_activate_notification(stdout: str) -> bool:
     return False
 
 
-def permission_transition_events(
+def state_transition_events(
     instances: list[InstanceInfo],
-    previous: dict[str, bool],
-) -> tuple[dict[str, bool], list[tuple[int, InstanceInfo]]]:
-    updated: dict[str, bool] = {}
+    previous: dict[str, str],
+) -> tuple[dict[str, str], list[tuple[int, InstanceInfo]]]:
+    updated: dict[str, str] = {}
     events: list[tuple[int, InstanceInfo]] = []
     for idx, instance in enumerate(instances, start=1):
         if instance.session is None:
             continue
         session_id = instance.session.session_id
-        current = instance.permission_prompt is True
+        current = instance.state or "unknown"
         updated[session_id] = current
-        if current and not previous.get(session_id, False):
+        if current not in ("permission", "error"):
+            continue
+        if previous.get(session_id) != current:
             events.append((idx, instance))
     return updated, events

@@ -1,11 +1,11 @@
 from agj.models import InstanceInfo, ProcessInfo, SessionInfo
-from agj.tui import TuiState, _permission_value
+from agj.tui import TuiState, _state_value
 
 
-def test_permission_value():
-    assert _permission_value(True) == "yes"
-    assert _permission_value(False) == "no"
-    assert _permission_value(None) == "unknown"
+def test_state_value():
+    assert _state_value("permission") == "permission"
+    assert _state_value("running") == "running"
+    assert _state_value(None) == "unknown"
 
 
 def test_tui_state_defaults():

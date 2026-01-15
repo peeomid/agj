@@ -48,6 +48,7 @@ packages = ["agj"]
 [tool.hatch.build.targets.sdist]
 include = [
     "agj",
+    "agj/error_patterns.txt",
     "agj/permission_patterns.txt",
     "agj.png",
     "notification.png",

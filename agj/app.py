@@ -13,7 +13,7 @@ from agj.notifications import (
     NotificationSender,
     build_payload,
     default_sender,
-    permission_transition_events,
+    state_transition_events,
 )
 from agj.output_utils import has_visible_text, normalize_output, split_and_trim
 from agj.service import ListOptions, list_instances
@@ -58,7 +58,7 @@ class MonitorController:
     last_selection_at: float = field(default=0.0, init=False)
     fetch_inflight: bool = field(default=False, init=False)
     last_list_refresh_at: float = field(default=0.0, init=False)
-    permission_state: dict[str, bool] = field(default_factory=dict, init=False)
+    state_state: dict[str, str] = field(default_factory=dict, init=False)
     notifications_initialized: bool = field(default=False, init=False)
     cache_ttl: float = field(default=6.0, init=False)
     refresh_after: float = field(default=2.0, init=False)
@@ -90,9 +90,9 @@ class MonitorController:
             for inst in instances:
                 if inst.session is None:
                     continue
-                if not inst.permission_output:
+                if not inst.state_output:
                     continue
-                lines = split_and_trim(inst.permission_output)
+                lines = split_and_trim(inst.state_output)
                 if not lines:
                     continue
                 self.output_cache[inst.session.session_id] = OutputCacheEntry(
@@ -158,8 +158,8 @@ class MonitorController:
                 self.state.last_output_at = cached.last_output_at
                 self.state.output_loading = False
                 return
-        elif selection_changed and instance.permission_output:
-            lines = split_and_trim(instance.permission_output)
+        elif selection_changed and instance.state_output:
+            lines = split_and_trim(instance.state_output)
             if lines:
                 self.state.output_lines = lines
                 self.state.last_output_at = datetime.now().strftime("%H:%M:%S")
@@ -217,14 +217,14 @@ class MonitorController:
 
     def _maybe_notify(self, instances: list[InstanceInfo]) -> None:
         if not self.notify_enabled:
-            self.permission_state = {
-                inst.session.session_id: inst.permission_prompt is True
+            self.state_state = {
+                inst.session.session_id: inst.state or "unknown"
                 for inst in instances
                 if inst.session is not None
             }
             return
-        updated, events = permission_transition_events(instances, self.permission_state)
-        self.permission_state = updated
+        updated, events = state_transition_events(instances, self.state_state)
+        self.state_state = updated
         if not self.notifications_initialized:
             self.notifications_initialized = True
             return

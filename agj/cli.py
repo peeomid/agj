@@ -46,15 +46,15 @@ def format_table(
     include_path: bool,
     include_session: bool,
     include_session_name: bool,
-    include_permission: bool,
+    include_state: bool,
 ) -> str:
     rows = []
     header = ["id", "pid", "name"]
     if include_session_name:
         header.append("Iterm tab title")
         header.append("Iterm tab id")
-    if include_permission:
-        header.append("permission")
+    if include_state:
+        header.append("state")
     header.append("cmd")
     if include_session:
         header.append("session")
@@ -78,21 +78,16 @@ def format_table(
             if not stable:
                 session_name = _truncate(session_name, 40)
                 tab_id = _truncate(tab_id, 12)
-        permission_value = ""
-        if include_permission:
-            if inst.permission_prompt is True:
-                permission_value = "yes"
-            elif inst.permission_prompt is False:
-                permission_value = "no"
-            else:
-                permission_value = "unknown"
+        state_value = ""
+        if include_state:
+            state_value = inst.state or "unknown"
         rows.append(
             [
                 str(idx),
                 str(inst.process.pid),
                 inst.process.name,
                 *([session_name, tab_id] if include_session_name else []),
-                *([permission_value] if include_permission else []),
+                *([state_value] if include_state else []),
                 cmd,
                 *([format_session(inst)] if include_session else []),
                 *([path_value] if include_path else []),
@@ -122,9 +117,9 @@ def serialize_instances(instances: list[InstanceInfo]) -> str:
                 "id": idx,
                 "process": asdict(inst.process),
                 "session": asdict(inst.session) if inst.session else None,
-                "permission_prompt": inst.permission_prompt,
-                "permission_reason": inst.permission_reason,
-                "permission_output": inst.permission_output,
+                "state": inst.state,
+                "state_reason": inst.state_reason,
+                "state_output": inst.state_output,
             }
         )
     return json.dumps(payload, indent=2)
@@ -138,7 +133,7 @@ def filter_instances(
 ) -> list[InstanceInfo]:
     filtered = [inst for inst in instances if not no_unmapped or inst.session]
     if permission_only:
-        filtered = [inst for inst in filtered if inst.permission_prompt is True]
+        filtered = [inst for inst in filtered if inst.state == "permission"]
     if limit is not None:
         filtered = filtered[:limit]
     return filtered
@@ -274,12 +269,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     list_parser.add_argument(
         "--no-permission-check",
         action="store_true",
-        help="Skip permission prompt detection",
+        help="Skip state detection (permission/error)",
     )
     list_parser.add_argument(
         "--permission-debug",
         action="store_true",
-        help="Show why a permission prompt was detected",
+        help="Show why a state was detected (permission/error)",
     )
     list_parser.add_argument(
         "--view",
@@ -404,8 +399,8 @@ def cmd_list(args: argparse.Namespace, backend: ItermBackend) -> int:
                 include_session=args.with_session,
                 include_session_name=include_session_name,
                 include_path=include_path,
-                include_permission_reason=args.permission_debug,
-                include_permission_output=args.permission_debug,
+                include_state_reason=args.permission_debug,
+                include_state_output=args.permission_debug,
                 color=color,
             )
         )
@@ -420,7 +415,7 @@ def cmd_list(args: argparse.Namespace, backend: ItermBackend) -> int:
             include_path,
             args.with_session,
             include_session_name,
-            include_permission=True,
+            include_state=True,
         )
     )
     print("")

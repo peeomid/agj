@@ -48,4 +48,4 @@ def test_list_instances_permission_only(monkeypatch):
 
     assert len(instances) == 1
     assert instances[0].process.pid == 1
-    assert instances[0].permission_prompt is True
+    assert instances[0].state == "permission"

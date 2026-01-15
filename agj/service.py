@@ -8,7 +8,8 @@ from agj.iterm import ItermBackend
 from agj.mapping import map_instances
 from agj.models import InstanceInfo
 from agj.output_utils import has_visible_text, normalize_output
-from agj.permissions import classify_agent, detect_permission_prompt_with_reason
+from agj.permissions import classify_agent
+from agj.state import detect_state_with_reason
 from agj.processes import ProcessFinder, ProcessQuery
 
 
@@ -44,18 +45,18 @@ def list_instances(backend: ItermBackend, options: ListOptions) -> list[Instance
     instances.sort(key=lambda inst: inst.process.pid)
 
     if options.permission_check:
-        instances = _with_permission_status(instances, backend, options.permission_lines)
+        instances = _with_state_status(instances, backend, options.permission_lines)
 
     if options.no_unmapped:
         instances = [inst for inst in instances if inst.session]
     if options.permission_only:
-        instances = [inst for inst in instances if inst.permission_prompt is True]
+        instances = [inst for inst in instances if inst.state == "permission"]
     if options.limit is not None:
         instances = instances[: options.limit]
     return instances
 
 
-def _with_permission_status(
+def _with_state_status(
     instances: list[InstanceInfo],
     backend: ItermBackend,
     permission_lines: int,
@@ -63,7 +64,7 @@ def _with_permission_status(
     updated: list[InstanceInfo] = []
     for inst in instances:
         if inst.session is None:
-            updated.append(replace(inst, permission_prompt=None, permission_reason=None))
+            updated.append(replace(inst, state="unknown", state_reason=None, state_output=None))
             continue
         output = backend.capture_output(inst.session.session_id, lines=permission_lines)
         output = normalize_output(output)
@@ -72,14 +73,14 @@ def _with_permission_status(
                 backend.capture_output(inst.session.session_id, lines=None)
             )
         kind = classify_agent(inst.process)
-        permission, reason = detect_permission_prompt_with_reason(output, kind)
+        state, reason = detect_state_with_reason(output, kind)
         last_lines = _last_nonempty_lines(output, 20) if output else ""
         updated.append(
             replace(
                 inst,
-                permission_prompt=permission,
-                permission_reason=reason,
-                permission_output=last_lines,
+                state=state,
+                state_reason=reason,
+                state_output=last_lines,
             )
         )
     return updated

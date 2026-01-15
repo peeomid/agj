@@ -45,11 +45,11 @@ def test_format_table_stable():
         include_path=False,
         include_session=True,
         include_session_name=True,
-        include_permission=True,
+        include_state=True,
     )
     lines = output.splitlines()
     assert lines[0].startswith(
-        "id\tpid\tname\tIterm tab title\tIterm tab id\tpermission\tcmd\tsession"
+        "id\tpid\tname\tIterm tab title\tIterm tab id\tstate\tcmd\tsession"
     )
     assert "\t" in lines[1]
 
@@ -66,7 +66,7 @@ def test_format_table_with_path_column():
         include_path=True,
         include_session=False,
         include_session_name=False,
-        include_permission=False,
+        include_state=False,
     )
     lines = output.splitlines()
     assert lines[0].endswith("\tpath")
@@ -85,7 +85,7 @@ def test_format_table_with_session_name():
         include_path=False,
         include_session=False,
         include_session_name=True,
-        include_permission=False,
+        include_state=False,
     )
     lines = output.splitlines()
     assert lines[0] == "id\tpid\tname\tIterm tab title\tIterm tab id\tcmd"
@@ -103,16 +103,16 @@ def test_format_detailed_includes_lines():
         include_session=True,
         include_session_name=True,
         include_path=True,
-        include_permission_reason=True,
-        include_permission_output=True,
+        include_state_reason=True,
+        include_state_output=True,
         color=False,
     )
     assert "[ID 1] PID 11  codex" in output
     assert "Iterm tab title: My Session" in output
     assert "Iterm tab id: t1" in output
-    assert "Permission prompt:" in output
-    assert "Permission reason:" in output
-    assert "Permission output (last 20 lines):" in output
+    assert "State:" in output
+    assert "State reason:" in output
+    assert "State output (last 20 lines):" in output
     assert "Session: w:" in output
     assert "Path: /tmp" in output
     assert "Cmd: codex" in output
@@ -127,7 +127,7 @@ def test_format_table_without_session_column():
         include_path=False,
         include_session=False,
         include_session_name=False,
-        include_permission=False,
+        include_state=False,
     )
     lines = output.splitlines()
     assert lines[0] == "id\tpid\tname\tcmd"

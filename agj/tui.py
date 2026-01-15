@@ -85,9 +85,9 @@ class MonitorTui:
                 "dim": "#888888",
                 "header": "bold",
                 "label": "#6fa8dc",
-                "perm_yes": "fg:#ff5f5f bold",
-                "perm_no": "fg:#5fd75f bold",
-                "perm_unknown": "fg:#d7af00 bold",
+                "state_attention": "fg:#ff5f5f bold",
+                "state_running": "fg:#5fd75f bold",
+                "state_unknown": "fg:#d7af00 bold",
             }
         )
 
@@ -134,18 +134,18 @@ class MonitorTui:
             dir_name = ""
             if instance.session and instance.session.path:
                 dir_name = instance.session.path.rstrip("/").split("/")[-1]
-            perm = _permission_value(instance.permission_prompt)
-            perm_style = _permission_style(instance.permission_prompt)
+            state = _state_value(instance.state)
+            state_style = _state_style(instance.state)
             id_col = _pad(_truncate(f"ID {idx + 1}", widths["id"]), widths["id"])
             pid_col = _pad(_truncate(str(instance.process.pid), widths["pid"]), widths["pid"])
             proc_col = _pad(_truncate(proc, widths["proc"]), widths["proc"])
             session_col = _pad(_truncate(session_name, widths["session"]), widths["session"])
             tab_col = _pad(_truncate(tab_id, widths["tab"]), widths["tab"])
             dir_col = _pad(_truncate(dir_name, widths["dir"]), widths["dir"])
-            perm_col = _pad(_truncate(perm, widths["perm"]), widths["perm"])
+            state_col = _pad(_truncate(state, widths["perm"]), widths["perm"])
             row = f"{prefix}{id_col} {pid_col} {proc_col} {session_col} {tab_col} {dir_col} "
             lines.append((style, row))
-            lines.append((perm_style, perm_col))
+            lines.append((state_style, state_col))
             lines.append(("", "\n"))
         if lines:
             lines.pop()
@@ -162,8 +162,8 @@ class MonitorTui:
         )
         tab_id = instance.session.tab_id if instance.session and instance.session.tab_id else ""
         path = instance.session.path if instance.session and instance.session.path else ""
-        perm = _permission_value(instance.permission_prompt)
-        perm_style = _permission_style(instance.permission_prompt)
+        state = _state_value(instance.state)
+        state_style = _state_style(instance.state)
         return [
             ("class:label", "Iterm tab title: "),
             ("", session_name),
@@ -171,8 +171,8 @@ class MonitorTui:
             ("class:label", "Iterm tab id: "),
             ("", tab_id),
             ("", "\n"),
-            ("class:label", "Permission prompt: "),
-            (perm_style, perm),
+            ("class:label", "State: "),
+            (state_style, state),
             ("", "\n"),
             ("class:label", "Path: "),
             ("", path),
@@ -295,20 +295,18 @@ class MonitorTui:
             return 100
 
 
-def _permission_value(value: bool | None) -> str:
-    if value is True:
-        return "yes"
-    if value is False:
-        return "no"
-    return "unknown"
+def _state_value(value: str | None) -> str:
+    if not value:
+        return "unknown"
+    return value
 
 
-def _permission_style(value: bool | None) -> str:
-    if value is True:
-        return "class:perm_yes"
-    if value is False:
-        return "class:perm_no"
-    return "class:perm_unknown"
+def _state_style(value: str | None) -> str:
+    if value in ("permission", "error"):
+        return "class:state_attention"
+    if value == "running":
+        return "class:state_running"
+    return "class:state_unknown"
 
 
 def _list_widths(total: int) -> dict[str, int]:
@@ -340,8 +338,8 @@ def _format_list_header(widths: dict[str, int]) -> str:
     session_col = _pad("Iterm tab title", widths["session"])
     tab_col = _pad("Tab ID", widths["tab"])
     dir_col = _pad("Dir", widths["dir"])
-    perm_col = _pad("Asking", widths["perm"])
-    return f"  {id_col} {pid_col} {proc_col} {session_col} {tab_col} {dir_col} {perm_col}"
+    state_col = _pad("State", widths["perm"])
+    return f"  {id_col} {pid_col} {proc_col} {session_col} {tab_col} {dir_col} {state_col}"
 
 
 def _truncate(value: str, max_len: int) -> str:

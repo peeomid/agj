@@ -1,0 +1,5 @@
+# One regex per line for error detection.
+# Lines starting with # are comments.
+
+stream disconnected before completion
+response\.failed event received

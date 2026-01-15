@@ -20,8 +20,8 @@ def format_detailed(
     include_session: bool,
     include_session_name: bool,
     include_path: bool,
-    include_permission_reason: bool,
-    include_permission_output: bool,
+    include_state_reason: bool,
+    include_state_output: bool,
     color: bool,
 ) -> str:
     if not instances:
@@ -39,17 +39,17 @@ def format_detailed(
             tab_id = inst.session.tab_id if inst.session and inst.session.tab_id else ""
             label = paint("    Iterm tab id:", Ansi.blue, color)
             lines.append(f"{label} {tab_id}")
-        permission_value = _permission_value(inst.permission_prompt)
-        perm_label = paint("    Permission prompt:", Ansi.blue, color)
-        perm_value = _color_permission(permission_value, color)
-        lines.append(f"{perm_label} {perm_value}")
-        if include_permission_reason:
-            reason = inst.permission_reason or ""
-            label = paint("    Permission reason:", Ansi.blue, color)
+        state_value = _state_value(inst.state)
+        state_label = paint("    State:", Ansi.blue, color)
+        state_value_colored = _color_state(state_value, color)
+        lines.append(f"{state_label} {state_value_colored}")
+        if include_state_reason:
+            reason = inst.state_reason or ""
+            label = paint("    State reason:", Ansi.blue, color)
             lines.append(f"{label} {reason}")
-        if include_permission_output:
-            output = inst.permission_output or ""
-            label = paint("    Permission output (last 20 lines):", Ansi.blue, color)
+        if include_state_output:
+            output = inst.state_output or ""
+            label = paint("    State output (last 20 lines):", Ansi.blue, color)
             separator = paint(
                 "    ────────────────────────────────────────────────────────────",
                 Ansi.dim,
@@ -80,19 +80,17 @@ def format_detailed(
     return "\n".join(lines)
 
 
-def _permission_value(value: bool | None) -> str:
-    if value is True:
-        return "yes"
-    if value is False:
-        return "no"
-    return "unknown"
+def _state_value(value: str | None) -> str:
+    if not value:
+        return "unknown"
+    return value
 
 
-def _color_permission(value: str, color: bool) -> str:
+def _color_state(value: str, color: bool) -> str:
     if not color:
         return value
-    if value == "yes":
+    if value in ("permission", "error"):
         return paint(value, Ansi.red, color)
-    if value == "no":
+    if value == "running":
         return paint(value, Ansi.green, color)
     return paint(value, Ansi.yellow, color)

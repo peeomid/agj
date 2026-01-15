@@ -2,9 +2,9 @@ import json
 
 from agj.models import InstanceInfo, ProcessInfo, SessionInfo
 from agj.notifications import (
-    _did_click_action,
+    _did_activate_notification,
     build_payload,
-    permission_transition_events,
+    state_transition_events,
     prompt_snippet,
     prompt_summary,
 )
@@ -16,8 +16,8 @@ def _instance(
     title: str | None = "Session",
     path: str | None = "/Users/me/project",
     cmdline: list[str] | None = None,
-    permission_prompt: bool | None = None,
-    permission_output: str | None = None,
+    state: str | None = None,
+    state_output: str | None = None,
 ) -> InstanceInfo:
     proc = ProcessInfo(
         pid=123,
@@ -36,8 +36,8 @@ def _instance(
     return InstanceInfo(
         process=proc,
         session=session,
-        permission_prompt=permission_prompt,
-        permission_output=permission_output,
+        state=state,
+        state_output=state_output,
     )
 
 
@@ -80,38 +80,38 @@ Line 2
 
 
 def test_build_payload_fields():
-    inst = _instance(permission_output="line1\nline2\nline3\n")
+    inst = _instance(state="permission", state_output="line1\nline2\nline3\n")
     payload = build_payload(inst, 2)
-    assert payload.title == "ADJ: Codex needs approval"
+    assert payload.title == "AGJ: Codex needs approval"
     assert payload.subtitle == "#2 project - Session"
     assert payload.body == "line3"
 
 
-def test_permission_transition_events():
-    inst1 = _instance(session_id="s1", permission_prompt=True)
-    inst2 = _instance(session_id="s2", permission_prompt=False)
-    previous = {"s1": False, "s2": False}
-    updated, events = permission_transition_events([inst1, inst2], previous)
-    assert updated["s1"] is True
-    assert updated["s2"] is False
+def test_state_transition_events():
+    inst1 = _instance(session_id="s1", state="permission")
+    inst2 = _instance(session_id="s2", state="running")
+    previous = {"s1": "running", "s2": "running"}
+    updated, events = state_transition_events([inst1, inst2], previous)
+    assert updated["s1"] == "permission"
+    assert updated["s2"] == "running"
     assert events == [(1, inst1)]
 
 
-def test_did_click_action_handles_action_label():
+def test_did_activate_notification_handles_action_label():
     payload = {"activationType": "actionClicked", "activationValue": "Go to session"}
-    assert _did_click_action(json.dumps(payload), "Go to session") is True
+    assert _did_activate_notification(json.dumps(payload)) is True
 
 
-def test_did_click_action_handles_contents_click():
+def test_did_activate_notification_handles_contents_click():
     payload = {"activationType": "contentsClicked"}
-    assert _did_click_action(json.dumps(payload), "Go to session") is True
+    assert _did_activate_notification(json.dumps(payload)) is True
 
 
-def test_did_click_action_handles_numeric_activation_type():
+def test_did_activate_notification_handles_numeric_activation_type():
     payload = {"activationType": 1}
-    assert _did_click_action(json.dumps(payload), "Go to session") is True
+    assert _did_activate_notification(json.dumps(payload)) is True
 
 
-def test_did_click_action_ignores_closed():
+def test_did_activate_notification_ignores_closed():
     payload = {"activationType": "closed"}
-    assert _did_click_action(json.dumps(payload), "Go to session") is False
+    assert _did_activate_notification(json.dumps(payload)) is False

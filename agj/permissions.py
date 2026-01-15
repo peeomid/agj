@@ -136,6 +136,11 @@ def _recent_text(text: str, max_lines: int) -> str:
 
 
 def _has_codex_confirm(text: str) -> bool:
+    if re.search(r"\(no menu shown\)", text, re.IGNORECASE):
+        # Allow no-menu prompts like "proceed/continue", but not command approvals.
+        if "run the following command" in text.lower():
+            return False
+        return True
     for line in text.splitlines():
         if '"' in line or ":" in line:
             continue
@@ -147,6 +152,8 @@ def _has_codex_confirm(text: str) -> bool:
 
 
 def _has_claude_confirm(text: str) -> bool:
+    if re.search(r"\(no menu shown\)", text, re.IGNORECASE):
+        return True
     for line in text.splitlines():
         if '"' in line or ":" in line:
             continue
