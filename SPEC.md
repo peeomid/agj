@@ -1,4 +1,4 @@
-# AGX POC Spec
+# AGJ POC Spec
 
 ## Goal
 Provide a Python TUI that lists running Codex and Claude instances, lets the user navigate with vim keys, and activates the corresponding iTerm2 pane when `o` is pressed.

@@ -1,4 +1,4 @@
-# Publishing AGX (using uv)
+# Publishing AGJ (using uv)
 
 ## One-time setup
 - Ensure you own the `agj` project on PyPI (or adjust the name if it’s taken).

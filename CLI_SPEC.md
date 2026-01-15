@@ -1,4 +1,4 @@
-# AGX CLI Spec
+# AGJ CLI Spec
 
 ## Goal
 Provide a non-interactive CLI for listing Codex/Claude instances, capturing output, and focusing the corresponding iTerm2 pane.
