@@ -13,6 +13,22 @@ AGJ monitors Codex/Claude sessions in iTerm2 so you never miss a permission prom
 - Captures recent output for quick context
 - Sends notifications and lets you jump straight to the session that needs approval
 
+## How state is determined
+AGJ determines state from the session output in this order:
+1) **permission**: a permission prompt is detected
+2) **error**: an error signature is detected
+3) **running**: output changes between checks
+4) **idle**: output does not change between checks
+
+By default AGJ captures the last 60 lines, then re-checks output after short delays
+(default `0.3,0.8` seconds). You can tune this with `--idle-checks`.
+
+### Idle detection limitations
+Idle is based on **no output change**, not on true task completion. This means:
+- A model can be “thinking” and still appear idle if it doesn’t print output.
+- Very slow updates might be missed unless you increase `--idle-checks`.
+- Short-lived output that appears and disappears between checks can be missed.
+
 ## iTerm tab titles
 AGJ uses the iTerm2 tab title in the TUI and notifications. You can customize this in iTerm2 to make the display more meaningful:
 https://iterm2.com/documentation-session-title.html
