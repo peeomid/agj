@@ -39,7 +39,7 @@ def process_matches(
         for candidate in candidates:
             if candidate in exact_paths:
                 return True
-        return False
+        # Fall back to regex matching when exact path doesn't match (e.g., shim vs real binary).
     haystack = " ".join([name, *cmdline])
     return any(regex.search(haystack) for regex in patterns)
 

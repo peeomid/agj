@@ -29,6 +29,12 @@ Idle is based on **no output change**, not on true task completion. This means:
 - Very slow updates might be missed unless you increase `--idle-checks`.
 - Short-lived output that appears and disappears between checks can be missed.
 
+## Architecture (TUI)
+- Two iTerm2 connections: main (list/focus/output) + scan (permission/error).
+- List refresh every 5s; selected output refresh every 3s.
+- Output cache per session to keep `o`/detail view responsive.
+- Permission/error scan runs after list mapping and fans out in threads.
+
 ## iTerm tab titles
 AGJ uses the iTerm2 tab title in the TUI and notifications. You can customize this in iTerm2 to make the display more meaningful:
 https://iterm2.com/documentation-session-title.html

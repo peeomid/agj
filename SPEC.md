@@ -48,11 +48,27 @@ When `o` is pressed for a selected instance:
 2) Activate session’s window and tab (order front).
 3) Activate the session itself.
 
-## Architecture
-- `agj/processes.py`: process discovery + filtering.
-- `agj/iterm.py`: iTerm2 API backend.
-- `agj/tui.py`: prompt_toolkit UI.
-- `agj/app.py`: orchestration + refresh.
+## Architecture (Current)
+- **TUI loop:** `agj/tui.py` runs three background tasks:
+  - List refresh every 5s.
+  - Selected output refresh every 3s.
+  - Initial refresh on startup (non-blocking).
+- **Controller:** `agj/app.py` owns state, caching, and notifications.
+  - Two-phase refresh: list/mapping first, permission/error scan second.
+  - Output cache (per session) with TTL + “refresh-after” window.
+  - Focus (`o`) uses a short output pause to feel immediate.
+- **State detection:** `agj/service.py`
+  - ThreadPoolExecutor fan-out per instance.
+  - Capture last 60 lines; fallback to visible screen if empty.
+  - Idle detection via re-checks (`--idle-checks`).
+- **Backends:** `agj/iterm.py` uses iTerm2 Python API.
+  - Two backend instances are used in TUI:
+    - **Main backend:** list + focus + output.
+    - **Scan backend:** permission/error scan.
+  - Each backend holds a single iTerm2 `Connection` guarded by a lock.
+- **Process mapping:** `agj/processes.py` + `agj/mapping.py`.
+  - Processes found via regex (codex/claude) + resolved binary paths.
+  - Sessions mapped by PID ancestry → iTerm2 session PID.
 
 ## Dependencies
 - `psutil`
@@ -68,3 +84,51 @@ When `o` is pressed for a selected instance:
 ## Non-Functional
 - Works on macOS with iTerm2 running.
 - Clear error message if iTerm2 API is not available or no sessions found.
+
+---
+
+# iTerm2 RPC Scheduler Spec (Target)
+
+## Goal
+Make `o` focus feel immediate, keep full-list refresh, and prevent Script Console connection explosion.
+
+## Constraints
+- No iTerm2 source changes.
+- TUI still shows full big-picture refresh.
+- Connections must be bounded and reused.
+
+## Architecture
+### Connection Pool (fixed size = 2)
+- **Conn A**: list + output + focus (high priority)
+- **Conn B**: permission scan (low priority)
+- No per-call connection creation.
+- No fallback connection storm.
+
+### Priority Scheduling
+- High: focus (`o`)
+- Normal: list + selected output
+- Low: permission scan
+
+### Cadence
+- Output refresh: 3s
+- List refresh: 5s
+- Permission scan: 10–15s (configurable)
+
+### Backoff / Health
+- On connection failure: reconnect with backoff (1s → 2s → 4s → 30s).
+- Tasks queue until connection returns.
+- Status shows connection state (connecting/retrying).
+
+### Batching
+- Use iTerm2 transactions for `line_info + get_contents` to reduce round trips.
+
+## UX Status
+- “Connecting to iTerm2…”
+- “Listing sessions…”
+- “Scanning permissions…”
+- “Focusing PID…”
+
+## Success Criteria
+- Script Console shows ≤2 running entries per TUI process.
+- `o` focus feels immediate (<1s under normal load).
+- No “Too many open files” errors.

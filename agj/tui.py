@@ -203,9 +203,10 @@ class MonitorTui:
         return [("class:dim", "────────────────────────────────────────────────────────────")]
 
     def _render_status(self):
-        return (
-            "j/k move  o focus  r refresh  p perm-only  u hide-unmapped  q quit"
-        )
+        status = self.state.status.strip() if self.state.status else ""
+        if status:
+            return f"{status}    j/k move  o focus  r refresh  p perm-only  u hide-unmapped  q quit"
+        return "j/k move  o focus  r refresh  p perm-only  u hide-unmapped  q quit"
 
     def _build_keybindings(self) -> KeyBindings:
         kb = KeyBindings()
@@ -260,6 +261,7 @@ class MonitorTui:
         self.app.invalidate()
 
     async def run(self) -> None:
+        self.app.create_background_task(self._run_and_refresh(self.on_refresh))
         self.app.create_background_task(self._auto_update_output())
         self.app.create_background_task(self._auto_refresh_list())
         await self.app.run_async()

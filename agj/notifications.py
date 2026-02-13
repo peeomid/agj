@@ -7,6 +7,8 @@ import shutil
 import subprocess
 from threading import Thread
 from typing import Callable
+import shlex
+import sys
 
 from agj.models import InstanceInfo
 from agj.output_utils import normalize_output
@@ -81,6 +83,44 @@ class AlerterSender(NotificationSender):
                 return
             if _did_activate_notification(stdout):
                 on_action()
+
+        Thread(target=_run, daemon=True).start()
+
+
+class TerminalNotifierSender(NotificationSender):
+    def send(
+        self,
+        payload: NotificationPayload,
+        on_action: Callable[[], None],
+        action_command: str | None = None,
+    ) -> None:
+        notifier = _terminal_notifier_path()
+        if not notifier:
+            return
+        args = [
+            notifier,
+            "-title",
+            payload.title,
+            "-subtitle",
+            payload.subtitle,
+            "-message",
+            payload.body or "",
+        ]
+        if payload.sound:
+            args.extend(["-sound", payload.sound])
+        if action_command:
+            args.extend(["-execute", action_command])
+
+        def _run() -> None:
+            try:
+                subprocess.run(
+                    args,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+            except Exception:
+                return
 
         Thread(target=_run, daemon=True).start()
 
@@ -178,6 +218,8 @@ def build_payload(
 
 
 def default_sender() -> NotificationSender:
+    if _terminal_notifier_path():
+        return TerminalNotifierSender()
     if _alerter_path():
         return AlerterSender()
     return NoopNotificationSender()
@@ -185,6 +227,18 @@ def default_sender() -> NotificationSender:
 
 def _alerter_path() -> str | None:
     return shutil.which("alerter")
+
+
+def _terminal_notifier_path() -> str | None:
+    return shutil.which("terminal-notifier")
+
+
+def build_focus_command(session_id: str) -> str:
+    repo_root = Path(__file__).resolve().parents[1]
+    python = shlex.quote(sys.executable)
+    root = shlex.quote(str(repo_root))
+    session = shlex.quote(session_id)
+    return f"cd {root} && {python} -m agj.main focus --session {session}"
 
 
 def _did_activate_notification(stdout: str) -> bool:

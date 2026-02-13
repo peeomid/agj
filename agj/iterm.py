@@ -119,9 +119,27 @@ class Iterm2Backend:
                 count = min(lines, max(total - line_info.overflow, 0))
                 start = max(line_info.overflow, total - count)
 
-            contents = await session.async_get_contents(start, count)
+            coord_range = iterm2.util.WindowedCoordRange(
+                iterm2.util.CoordRange(
+                    iterm2.util.Point(0, start),
+                    iterm2.util.Point(0, start + count),
+                )
+            )
+            response = await iterm2.rpc.async_get_screen_contents(
+                connection=conn,
+                session=session_id,
+                windowed_coord_range=coord_range,
+                style=False,
+            )
+            if (response.get_buffer_response.status !=
+                    iterm2.api_pb2.GetBufferResponse.Status.Value("OK")):
+                return ""
+            contents = iterm2.screen.ScreenContents(
+                response.get_buffer_response
+            )
             output = ""
-            for line in contents:
+            for i in range(contents.number_of_lines):
+                line = contents.line(i)
                 output += line.string
                 if line.hard_eol:
                     output += "\n"

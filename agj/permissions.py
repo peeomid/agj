@@ -87,7 +87,7 @@ def detect_permission_prompt_with_reason(
     agent_kind: str | None,
     patterns: PermissionPatterns = DEFAULT_PATTERNS,
 ) -> tuple[bool, str | None]:
-    if not output or agent_kind is None:
+    if not output:
         return False, None
     recent = _recent_text(output, 60)
     if agent_kind == "codex":
@@ -108,6 +108,21 @@ def detect_permission_prompt_with_reason(
                     continue
                 return True, f"claude matched /{regex.pattern}/ in: {snippet}"
         return False, None
+    # Unknown agent: try both pattern sets as a fallback.
+    for regex in patterns.claude:
+        match = regex.search(recent)
+        if match and _has_claude_confirm(recent):
+            snippet = _line_snippet(recent, match.start())
+            if '"' in snippet:
+                continue
+            return True, f"unknown matched /{regex.pattern}/ in: {snippet}"
+    for regex in patterns.codex:
+        match = regex.search(recent)
+        if match and _has_codex_confirm(recent):
+            snippet = _line_snippet(recent, match.start())
+            if '"' in snippet:
+                continue
+            return True, f"unknown matched /{regex.pattern}/ in: {snippet}"
     return False, None
 
 

@@ -6,17 +6,19 @@ import sys
 import time
 from datetime import datetime
 from dataclasses import dataclass, field
+from typing import Callable
 
 from agj.iterm import Iterm2Backend, ItermBackend
 from agj.models import InstanceInfo
 from agj.notifications import (
     NotificationSender,
     build_payload,
+    build_focus_command,
     default_sender,
     state_transition_events,
 )
 from agj.output_utils import has_visible_text, normalize_output, split_and_trim
-from agj.service import ListOptions, list_instances
+from agj.service import ListOptions, add_state_status, list_instances
 from agj.tui import MonitorTui, TuiState
 
 
@@ -49,6 +51,7 @@ class MonitorController:
     state: TuiState
     backend: ItermBackend
     patterns: list[str] | None
+    scan_backend: ItermBackend | None = None
     notify_enabled: bool = True
     notify_sound: str | None = None
     notifier: NotificationSender | None = None
@@ -61,12 +64,27 @@ class MonitorController:
     last_list_refresh_at: float = field(default=0.0, init=False)
     state_state: dict[str, str] = field(default_factory=dict, init=False)
     notifications_initialized: bool = field(default=False, init=False)
+    last_notified_at: dict[str, float] = field(default_factory=dict, init=False)
+    notify_cooldown: float = field(default=30.0, init=False)
     cache_ttl: float = field(default=6.0, init=False)
     refresh_after: float = field(default=2.0, init=False)
     min_fetch_interval: float = field(default=0.6, init=False)
+    on_update: Callable[[], None] | None = field(default=None, init=False, repr=False)
+    suspend_output_until: float = field(default=0.0, init=False)
+
+    def _signal(self) -> None:
+        if self.on_update:
+            try:
+                self.on_update()
+            except Exception:
+                return
 
     async def refresh(self) -> None:
         try:
+            self.state.status = "Connecting to iTerm2..."
+            self._signal()
+            self.state.status = "Listing sessions..."
+            self._signal()
             selected_session_id = None
             selected_pid = None
             if self.state.instances and 0 <= self.state.selected_index < len(self.state.instances):
@@ -77,13 +95,46 @@ class MonitorController:
             options = ListOptions(
                 patterns=self.patterns,
                 include_path=True,
-                permission_check=True,
-                permission_only=self.state.permission_only,
+                permission_check=False,
+                permission_only=False,
                 no_unmapped=self.state.hide_unmapped,
                 limit=None,
                 idle_checks=self.idle_checks,
             )
             instances = await asyncio.to_thread(list_instances, self.backend, options)
+            self.state.instances = sorted(instances, key=_tui_sort_key)
+            self._signal()
+            if self.state.instances:
+                selected_index = None
+                if selected_session_id is not None:
+                    for idx, inst in enumerate(self.state.instances):
+                        if inst.session and inst.session.session_id == selected_session_id:
+                            selected_index = idx
+                            break
+                if selected_index is None and selected_pid is not None:
+                    for idx, inst in enumerate(self.state.instances):
+                        if inst.process.pid == selected_pid:
+                            selected_index = idx
+                            break
+                if selected_index is not None:
+                    self.state.selected_index = selected_index
+                elif self.state.selected_index >= len(self.state.instances):
+                    self.state.selected_index = max(len(self.state.instances) - 1, 0)
+            else:
+                self.state.selected_index = 0
+            self.state.status = "Checking permissions..."
+            self._signal()
+            instances = await asyncio.to_thread(
+                add_state_status,
+                instances,
+                self.scan_backend or self.backend,
+                options.permission_lines,
+                options.idle_checks,
+            )
+            if self.state.permission_only:
+                instances = [inst for inst in instances if inst.state == "permission"]
+            if options.limit is not None:
+                instances = instances[: options.limit]
             self.state.instances = sorted(instances, key=_tui_sort_key)
             if self.state.instances:
                 selected_index = None
@@ -140,12 +191,17 @@ class MonitorController:
             self.state.status = "No iTerm session mapped for selection."
             return
         try:
+            self.state.status = f"Focusing {instance.process.pid}..."
+            self._signal()
+            self.suspend_output_until = time.monotonic() + 1.0
             await asyncio.to_thread(self.backend.activate, instance.session)
             self.state.status = f"Activated {instance.process.pid}."
         except Exception as exc:
             self.state.status = f"Activation failed: {exc}"
 
     async def update_output(self) -> None:
+        if time.monotonic() < self.suspend_output_until:
+            return
         if not self.state.instances:
             self.state.output_lines = []
             self.state.last_output_at = ""
@@ -248,14 +304,14 @@ class MonitorController:
                 if inst.session is not None
             }
             return
+        now = time.monotonic()
         updated, events = state_transition_events(instances, self.state_state)
         self.state_state = updated
         if not self.notifications_initialized:
             self.notifications_initialized = True
             return
-        if not events:
-            return
         notifier = self.notifier or default_sender()
+        notified = False
         for idx, inst in events:
             if inst.session is None:
                 continue
@@ -266,7 +322,29 @@ class MonitorController:
                 except Exception:
                     return
 
-            notifier.send(payload, _action)
+            action_command = build_focus_command(inst.session.session_id)
+            notifier.send(payload, _action, action_command=action_command)
+            self.last_notified_at[inst.session.session_id] = now
+            notified = True
+        if notified:
+            return
+        for idx, inst in enumerate(instances, start=1):
+            if inst.session is None:
+                continue
+            if inst.state not in ("permission", "error"):
+                continue
+            last = self.last_notified_at.get(inst.session.session_id, 0.0)
+            if now - last < self.notify_cooldown:
+                continue
+            payload = build_payload(inst, idx, sound=self.notify_sound)
+            def _action(session=inst.session) -> None:
+                try:
+                    self.backend.activate(session)
+                except Exception:
+                    return
+            action_command = build_focus_command(inst.session.session_id)
+            notifier.send(payload, _action, action_command=action_command)
+            self.last_notified_at[inst.session.session_id] = now
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -345,10 +423,11 @@ def main(
         print("TUI requires an interactive terminal.")
         return
     backend = Iterm2Backend()
-    state = TuiState(instances=[], selected_index=0, status="Loading...")
+    state = TuiState(instances=[], selected_index=0, status="Starting...")
     controller = MonitorController(
         state=state,
         backend=backend,
+        scan_backend=Iterm2Backend(),
         patterns=use_patterns,
         notify_enabled=use_notify,
         notify_sound=use_notify_sound,
@@ -357,7 +436,6 @@ def main(
     )
 
     async def _run() -> None:
-        await controller.refresh()
         tui = MonitorTui(
             state,
             controller.open_selected,
@@ -366,6 +444,7 @@ def main(
             controller.toggle_permission_only,
             controller.toggle_unmapped,
         )
+        controller.on_update = tui.app.invalidate
         await tui.run()
 
     asyncio.run(_run())

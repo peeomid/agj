@@ -64,6 +64,15 @@ def list_instances(backend: ItermBackend, options: ListOptions) -> list[Instance
     return instances
 
 
+def add_state_status(
+    instances: list[InstanceInfo],
+    backend: ItermBackend,
+    permission_lines: int,
+    idle_checks: tuple[float, ...],
+) -> list[InstanceInfo]:
+    return _with_state_status(instances, backend, permission_lines, idle_checks)
+
+
 def _with_state_status(
     instances: list[InstanceInfo],
     backend: ItermBackend,

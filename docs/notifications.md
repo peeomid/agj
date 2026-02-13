@@ -1,17 +1,18 @@
 # Notification Spec (TUI)
 
 ## Summary
-When the TUI is running, AGJ sends a macOS notification the first time a session
-starts asking for permission. It sends only once per prompt and fires again only
-after the prompt disappears and returns.
+When the TUI is running, AGJ sends a macOS notification when a session first
+enters `permission` (or `error`). It will also re-notify if the prompt stays
+active for a long time, using a cooldown.
 
 ## Trigger rules
-- Detect transitions from `no/unknown` → `yes` for `permission_prompt`.
-- Send exactly one notification per session per prompt.
+- Detect transitions to `permission` or `error`.
+- Send exactly one notification per session per transition.
+- Maintain a per-session cooldown timer to re-notify if still blocked.
 - Clear the “notified” state once the prompt is no longer present.
 
 ## Notification content
-- **Title:** `AGJ - Agent needs approval`
+- **Title:** `AGJ - Agent needs approval` (or error)
 - **Subtitle:** `{Agent} #1 - {Iterm tab title} - {Working dir base name or repo name}`
 - **Body:** A few lines from the prompt output (trimmed)
 - Clicking the notification focuses the iTerm pane.
@@ -36,3 +37,4 @@ after the prompt disappears and returns.
 - Requires `alerter` on PATH for notifications.
 - The TUI process must remain running to receive action callbacks.
 - Notifications are triggered from the TUI refresh loop.
+- Cooldown is currently 30s per session (TUI only).
